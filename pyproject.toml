@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "catasto-ingest"
+version = "0.1.0"
+description = "Catasto workflow for the automatic ingestion from Sister"
+authors = ["Francesco Bartoli <francesco.bartoli@geobeyond.it>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+prefect = "^2.0.1"
+
+[tool.poetry.dev-dependencies]
+ipython = "^8.4.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
