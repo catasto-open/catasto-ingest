@@ -133,3 +133,9 @@ libs/src/.DS_Store
 libs/src/sister/.DS_Store
 
 libs/src/sister/documentation/.DS_Store
+
+.DS_Store
+
+libs/src/sister/tests/sample.zip
+
+libs/src/sister/sample.zip
