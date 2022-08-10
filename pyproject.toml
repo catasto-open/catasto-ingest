@@ -8,6 +8,8 @@ license = "MIT"
 [tool.poetry.dependencies]
 python = "^3.8"
 prefect = "^2.0.3"
+pyfiglet = "^0.8.post1"
+sister = {path = "libs/src/sister"}
 
 [tool.poetry.dev-dependencies]
 ipython = "^8.4.0"
