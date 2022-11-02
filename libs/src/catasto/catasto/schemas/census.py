@@ -1,16 +1,9 @@
-from enum import Enum
 from pydantic import BaseModel, Field, validator
+from .enumeration import CensusTypeEnum
 from .building import FabbricatiModel, FabbricatiTerreniModel
 from .land import TerreniModel
 from .subject import SoggettiModel
 from .entitlement import TitolaritaModel
-
-
-class CensusTypeEnum(Enum):
-    FAB = "FABBRICATI"
-    TER = "TERRENI"
-    SOG = "SOGGETTI"
-    TIT = "TITOLARITA"
 
 
 class CensusFileType(BaseModel):
