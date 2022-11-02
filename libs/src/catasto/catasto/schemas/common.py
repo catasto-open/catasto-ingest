@@ -1,4 +1,6 @@
-from pydantic import BaseModel
+from typing import Union
+from pydantic import BaseModel, validator
+from .enumeration import CensusTypeEnum, CartographicTypeEnum
 
 
 class CommonBase(BaseModel):
@@ -31,3 +33,23 @@ class CommonBaseSubject(BaseModel):
 
 class CommonBaseFiscalSubject(CommonBaseSubject):
     codice_fiscale: str
+
+
+class ReaderFile(BaseModel):
+    filename: str
+    filetype: str
+    content: str
+
+    @validator('filetype')
+    def validate_filetype(cls, val):
+        if val.replace(".", "") not in [
+            CensusTypeEnum.FAB.name,
+            CensusTypeEnum.SOG.name,
+            CensusTypeEnum.TIT.name,
+            CensusTypeEnum.TER.name,
+            CartographicTypeEnum.CXF.name
+        ]:
+            raise ValueError(
+                f"The extension {val} is not valid for Catasto"
+            )
+        return val
