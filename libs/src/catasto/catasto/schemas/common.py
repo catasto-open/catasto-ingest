@@ -1,6 +1,6 @@
 from typing import Union
-from pydantic import BaseModel, validator
-from .enumeration import CensusTypeEnum, CartographicTypeEnum
+from pydantic import BaseModel, AnyUrl, validator
+from .enumeration import CensusTypeEnum, CartoTypeEnum
 
 
 class CommonBase(BaseModel):
@@ -47,9 +47,14 @@ class ReaderFile(BaseModel):
             CensusTypeEnum.SOG.name,
             CensusTypeEnum.TIT.name,
             CensusTypeEnum.TER.name,
-            CartographicTypeEnum.CXF.name
+            CartoTypeEnum.CXF.name,
+            CartoTypeEnum.CTF.name
         ]:
             raise ValueError(
                 f"The extension {val} is not valid for Catasto"
             )
         return val
+
+
+class UrlModel(BaseModel):
+    url: AnyUrl

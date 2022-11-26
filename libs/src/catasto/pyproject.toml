@@ -10,11 +10,17 @@ pydantic = "^1.10.2"
 py-scdb = "^0.0.2"
 aiofiles = "^22.1.0"
 s3fs = "^2022.10.0"
+catasto-db = {path = "../../../../catasto-db/dist/catasto_db-0.1.0-py3-none-any.whl"}
+miniopy-async = "^1.10"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.2.0"
 ipython = "^8.5.0"
 pytest-asyncio = "^0.20.1"
+prefect = "^2.6.6"
+
+[tool.poetry.group.dev.dependencies]
+ipython = "^8.6.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
