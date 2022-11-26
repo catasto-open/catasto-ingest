@@ -3,9 +3,9 @@ from pydantic import BaseModel, Field, validator
 
 
 class HeaderModel(BaseModel):
-    mappa: str = Field(..., alias="MAPPA")
-    nome_mappa: str = Field(..., alias="NOME MAPPA")
-    scala_originaria: str = Field(..., alias="SCALA ORIGINARIA")
+    mappa: str = Field(None, alias="MAPPA")
+    nome_mappa: str = Field(None, alias="NOME MAPPA")
+    scala_originaria: str = Field(None, alias="SCALA ORIGINARIA")
     oggetti: Dict[str, str] = {}
 
     @validator("mappa")
@@ -16,31 +16,34 @@ class HeaderModel(BaseModel):
             )
         return val
 
+    class Config:
+        allow_population_by_field_name = True
+
 
 class LandSheet(BaseModel):
-    codice_foglio: str = Field(..., alias="CODICE_FOGLIO")
-    codice_comune: str = Field(..., alias="CODICE_COMUNE")
+    codice_foglio: str = Field(None, alias="CODICE_FOGLIO")
+    codice_comune: str = Field(None, alias="CODICE_COMUNE")
     codice_sezione_censuaria: str = Field(
-        ...,
+        None,
         alias="CODICE SEZIONE CENSUARIA"
     )
     codice_numero_foglio: str = Field(
-        ...,
+        None,
         alias="CODICE NUMERO FOGLIO"
     )
     numero_foglio: str = Field(
-        ...,
+        None,
         alias="NUMERO FOGLIO"
     )
     codice_allegato: str = Field(
-        ...,
+        None,
         alias="CODICE ALLEGATO"
     )
     codice_sviluppo: str = Field(
-        ...,
+        None,
         alias="CODICE SVILUPPO"
     )
-    header: HeaderModel = ...
+    header: HeaderModel = None
 
     @validator("codice_sezione_censuaria")
     def validate_codice_sezione_censuaria(cls, val):
@@ -48,9 +51,9 @@ class LandSheet(BaseModel):
             raise ValueError(
                 "The characters number of CODICE SEZIONE CENSUARIA is not 1"
             )
-        if not val in ["A", "B", "_"]:
+        if not val in ["A", "B", "C", "D"]:
             raise ValueError(
-                f"The value {val} for CODICE SEZIONE CENSUARIA is not among (A, B, _)")
+                f"The value {val} for CODICE SEZIONE CENSUARIA is not among (A, B, C, D)")
         return val
 
     @validator("codice_allegato")
@@ -75,3 +78,6 @@ class LandSheet(BaseModel):
                 f"The value {val} for CODICE SVILUPPO is not among (A, B, C, D, 0, U)"
             )
         return val
+
+    class Config:
+        allow_population_by_field_name = True
