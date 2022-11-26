@@ -1,8 +1,9 @@
 from enum import Enum
 
 
-class CartographicTypeEnum(Enum):
+class CartoTypeEnum(Enum):
     CXF = "CARTOGRAFICO"
+    CTF = "CARTOGRAFICO ETRF"
 
 
 class CensusTypeEnum(Enum):
