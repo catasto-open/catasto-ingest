@@ -1,6 +1,6 @@
-from typing import Protocol, Union
+from typing import Protocol, Union, Tuple, Iterator
 from .schemas.census import Census
-from .schemas.carto import LandSheet
+from .schemas.carto import LandSheet, HeaderModel
 from .reader import (
     LocalFileReaderService,
     MinioFileReaderService
@@ -39,11 +39,13 @@ class FileParserService(FileParser):
                 # parse filename
                 carto = self._parse_name(carto, name)
                 # parse content
-                _iter = iter(content.splitlines())
-                for item in _iter:
+                gen_lines = iter(content.splitlines())
+                # for item in _iter:
                     # breakpoint()
-                    result = carto
-                    # pass
+                carto.header = HeaderModel()
+                carto, gen_lines = self._parse_header(carto, gen_lines)
+                result = carto
+                # pass
             elif filetype in ["FAB", "TER", "SOG"]:
                 result = Census(codice_comune="H501")
             return result
@@ -57,3 +59,15 @@ class FileParserService(FileParser):
         land_sheet.codice_allegato = name[9]
         land_sheet.codice_sviluppo = name[10]
         return land_sheet
+
+    def _parse_header(
+        self,
+        land_sheet: LandSheet,
+        _iter: Iterator
+    ) -> Tuple[LandSheet, Iterator]:
+        header = HeaderModel()
+        header.mappa = next(_iter).strip()
+        header.nome_mappa = next(_iter).strip()
+        header.scala_originaria = next(_iter).strip()
+        land_sheet.header = header
+        return (land_sheet, _iter)
