@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, List, Tuple
 from pydantic import BaseModel, Field, validator
 
 
@@ -18,6 +18,15 @@ class HeaderModel(BaseModel):
 
     class Config:
         allow_population_by_field_name = True
+
+
+class CartoObject(BaseModel):
+    bordo: List = Field([], alias="BORDO")
+    testo: List = Field([], alias="TESTO")
+    simbolo:  List = Field([], alias="SIMBOLO")
+    fiduciale: List = Field([], alias="FIDUCIALE")
+    linea: List = Field([], alias="LINEA")
+    eof: List = Field([], alias="EOF")
 
 
 class LandSheet(BaseModel):
@@ -44,6 +53,7 @@ class LandSheet(BaseModel):
         alias="CODICE SVILUPPO"
     )
     header: HeaderModel = None
+    oggetti: CartoObject = None
 
     @validator("codice_sezione_censuaria")
     def validate_codice_sezione_censuaria(cls, val):
@@ -81,3 +91,12 @@ class LandSheet(BaseModel):
 
     class Config:
         allow_population_by_field_name = True
+
+
+class CartoObjectItem(BaseModel):
+    codice_identificativo: str = Field(None, alias="CODICE_IDENTIFICATIVO")
+    tipo: str = None
+    vertici: List = Field([], alias="VERTICI")
+    tabisole: List = Field([], alias="TABISOLE")
+    numeroisole: str = Field(None, alias="NUMEROISOLE")
+    numerovertici: str = Field(None, alias="NUMEROVERTICI")

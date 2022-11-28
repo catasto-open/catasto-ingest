@@ -50,5 +50,4 @@ def cxf_parser(cxf_file_reader):
 def cxf_content_generator():
     _file = directory / "H501D076700.CTF"
     content = _file.read_text()
-    breakpoint()
     return iter(content.splitlines())
