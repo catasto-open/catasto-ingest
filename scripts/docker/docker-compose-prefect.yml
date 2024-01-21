@@ -1,48 +1,131 @@
 # up & run Prefect
-
 version: "3.9"
 
 services:
   prefect:
-    image: prefecthq/prefect:2.0.3-python3.9
-    entrypoint: prefect orion start --host 0.0.0.0
+    image: prefecthq/prefect:2.14.15-python3.9
+    restart: always
+    volumes:
+      - prefect:/root/.prefect
+    # entrypoint is installing additional packages
+    entrypoint: ["/opt/prefect/entrypoint.sh", "prefect", "server", "start"]
     environment:
-      - PREFECT_ORION_DATABASE_CONNECTION_URL=postgresql+asyncpg://postgres:postgres@db:5432/orion
+      # - PREFECT_UI_URL=http://127.0.0.1:4200/api
+      # - PREFECT_API_URL=http://127.0.0.1:4200/api
+      # If you want to access Prefect Server UI from anywhere other than the Docker host machine, you will need to change
+      # PREFECT_UI_URL and PREFECT_API_URL to match the external hostname/IP of the host machine. For example:
+      - PREFECT_UI_URL=http://prefect:4200/api
+      - PREFECT_API_URL=http://prefect:4200/api
+      - PREFECT_LOGGING_SERVER_LEVEL=DEBUG
+      - PREFECT_SERVER_API_HOST=0.0.0.0
+      - PREFECT_API_DATABASE_CONNECTION_URL=postgresql+asyncpg://postgres:postgres@db:5432/prefect
+      - PREFECT_API_SERVICES_FLOW_RUN_NOTIFICATIONS_ENABLED=false
+      # Uncomment the following line if you want to use the 'S3 Bucket' storage block instead of the older 'S3' storage
+      - EXTRA_PIP_PACKAGES=prefect-aws s3fs
     ports:
       - 4200:4200
+    depends_on:
+      - db
+    networks:
+      - prefect-network
+    profiles: ["server"]
 
-  # prefect_work_queue:
-  #   image: prefecthq/prefect:2.0.3-python3.9
-  #   entrypoint: prefect work-queue create base-queue
-  #   environment:
-  #     - PREFECT_API_URL=http://prefect:4200/api
-  #   restart: on-failure
-  #   depends_on:
-  #     - prefect
-  #     - db
+  prefect_work_queue_catasto:
+    image: prefecthq/prefect:2.14.15-python3.9
+    entrypoint: ["/opt/prefect/entrypoint.sh", "prefect", "work-queue", "create", "catasto"]
+    environment:
+      - PREFECT_API_URL=http://prefect:4200/api
+      - EXTRA_PIP_PACKAGES=prefect-aws s3fs
+    restart: always
+    depends_on:
+      - prefect
+      - db
+    networks:
+      - prefect-network
+    profiles: ["queue"]
 
-  # prefect_agent:
-  #   image: prefecthq/prefect:2.0.3-python3.9
-  #   entrypoint: prefect agent start base-queue
-  #   environment:
-  #     - PREFECT_API_URL=http://prefect:4200/api
-  #   restart: on-failure
-  #   depends_on:
-  #     - prefect
-  #     - db
-  #     - prefect_work_queue
+  prefect_agent_catasto:
+    image: prefecthq/prefect:2.14.15-python3.9
+    entrypoint: ["/opt/prefect/entrypoint.sh", "prefect", "agent", "start", "catasto"]
+    environment:
+      - PREFECT_API_URL=http://prefect:4200/api
+      - EXTRA_PIP_PACKAGES=prefect-aws s3fs
+    restart: always
+    depends_on:
+      - prefect
+      - db
+      - prefect_work_queue_catasto
+    networks:
+      - prefect-network
+    profiles: ["agent"]
+
+  prefect_agent_default:
+    image: prefecthq/prefect:2.14.15-python3.9
+    entrypoint: ["/opt/prefect/entrypoint.sh", "prefect", "agent", "start", "default"]
+    environment:
+      - PREFECT_API_URL=http://prefect:4200/api
+      - EXTRA_PIP_PACKAGES=prefect-aws s3fs
+    restart: always
+    depends_on:
+      - prefect
+      - db
+    networks:
+      - prefect-network
+    profiles: ["agent"]
 
   db:
-    image: postgres:14.1-alpine
+    image: postgres:15.2-alpine
     restart: always
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=orion
+      - POSTGRES_DB=prefect
     ports:
       - "5432:5432"
     volumes:
       - db:/var/lib/postgresql/data
+    networks:
+      - prefect-network
+    profiles: ["server"]
+
+  ### MinIO for flow storage
+  minio:
+    image: minio/minio:latest
+    entrypoint: ["minio", "server", "--address", "0.0.0.0:9000", "--console-address", "0.0.0.0:9001", "/data"]
+    ports:
+      - 9000:9000
+      - 9001:9001
+    volumes:
+      - "minio:/data"
+    networks:
+      - prefect-network
+    profiles: ["minio"]
+
+  ### Prefect CLI
+  cli:
+    image: prefecthq/prefect:2.14.15-python3.10
+    entrypoint: ["/opt/prefect/entrypoint.sh", "bash"]
+    working_dir: "/root/catasto"
+    volumes:
+      - "./../../:/root/catasto"
+      # hack to not load local .venv from host machine
+      - cli:/root/catasto/.venv
+    environment:
+      - PREFECT_API_URL=http://prefect:4200/api
+      - EXTRA_PIP_PACKAGES=prefect-aws s3fs poetry
+    networks:
+      - prefect-network
+    profiles: ["cli"]
+
 volumes:
+  prefect:
+    driver: local
   db:
     driver: local
+  minio:
+    driver: local
+  cli:
+    driver: local
+networks:
+  prefect-network:
+    name: prefect-network

@@ -4,13 +4,18 @@ version = "0.1.0"
 description = "Catasto workflow for the automatic ingestion from Sister"
 authors = ["Francesco Bartoli <francesco.bartoli@geobeyond.it>"]
 license = "MIT"
+packages = [
+    {include = "flows", from = "."}
+]
 
 [tool.poetry.dependencies]
 python = "^3.10"
-prefect = "^2.0.3"
+prefect = "^2.14.15"
 pyfiglet = "^0.8.post1"
 sister = {path = "libs/src/sister"}
 smidt = {path = "libs/src/smidt"}
+prefect-aws = "^0.4.7"
+s3fs = "^2023.12.2"
 
 [tool.poetry.group.dev.dependencies]
 ipython = "^8.20.0"

@@ -139,3 +139,5 @@ libs/src/sister/documentation/.DS_Store
 libs/src/sister/tests/sample.zip
 
 libs/src/sister/sample.zip
+
+.vscode/

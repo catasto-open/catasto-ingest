@@ -1,0 +1,13 @@
+.prefectignore
+.dockerignore
+.gitignore
+.git
+.venv
+.vscode
+LICENSE
+README.md
+poetry.lock
+poetry.toml
+pyproject.toml
+scripts
+.DS_Store
