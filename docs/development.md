@@ -498,6 +498,30 @@ The deployment we'll be available and is ready to be executed now in the Prefect
 
 ![Prefect Demo Flow Deployment](img/prefect_demo_flow_deployment.png)
 
+### Execute a deployment in Prefect
+
+Once a deployment is available and executable in Prefect it can be run directly in the GUI or programmatically. For development we will be using just the GUI, go to the `Deployments` menu and
+click on the three-points icon of the deployment line with the name `Prefect flow deployment`
+(flow name `prefect flow`):
+
+![Prefect Demo Deployment Run](img/prefect_run_demo_flow.png)
+
+Start the execution by clicking the line `Quick run`:
+
+![Prefect Flow Run](img/prefect_flow_run.png)
+
+In the section `Flow Runs` a new item appears with the orange color. It means that the flow is waiting for being executed and if everything will go well then it will become green.
+
+![Prefect Flow Run Successful](img/prefect_flow_run_green.png)
+
+If you click on the flow run just executed a graph of the successfully completed execution and the log with all the details will be shown:
+
+![Prefect Flow Run Graph](img/prefect_flow_run_graph.png)
+
+The graph is composed with all the tasks connected to the flow definition. The log shows all the details for each task:
+
+![Prefect Flow Run Log](img/prefect_flow_run_log.png)
+
 ### Restart the stack from scratch
 
 If you want to restart the stack with everything clean then you should use the following command which removes the volumes for each service:
