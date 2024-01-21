@@ -4,10 +4,13 @@
 .git
 .venv
 .vscode
+.github
 LICENSE
 README.md
 poetry.lock
 poetry.toml
 pyproject.toml
+mkdocs.yml
+docs
 scripts
 .DS_Store
