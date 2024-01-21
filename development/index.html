@@ -1,0 +1,750 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="..">
+      
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.4">
+    
+    
+      
+        <title>Development - Catasto Ingest</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.50c56a3b.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+  
+  
+    
+    
+  
+    
+    
+  
+    
+    
+  
+    
+    
+  
+    
+    
+  
+    
+    
+  
+    
+    
+  
+    
+    
+  
+    
+    
+  
+    
+    
+  
+    
+    
+  
+    
+    
+  
+  
+  <style>:root{--md-admonition-icon--note:url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M1 7.775V2.75C1 1.784 1.784 1 2.75 1h5.025c.464 0 .91.184 1.238.513l6.25 6.25a1.75 1.75 0 0 1 0 2.474l-5.026 5.026a1.75 1.75 0 0 1-2.474 0l-6.25-6.25A1.752 1.752 0 0 1 1 7.775Zm1.5 0c0 .066.026.13.073.177l6.25 6.25a.25.25 0 0 0 .354 0l5.025-5.025a.25.25 0 0 0 0-.354l-6.25-6.25a.25.25 0 0 0-.177-.073H2.75a.25.25 0 0 0-.25.25ZM6 5a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z"/></svg>');--md-admonition-icon--abstract:url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M2.5 1.75v11.5c0 .138.112.25.25.25h3.17a.75.75 0 0 1 0 1.5H2.75A1.75 1.75 0 0 1 1 13.25V1.75C1 .784 1.784 0 2.75 0h8.5C12.216 0 13 .784 13 1.75v7.736a.75.75 0 0 1-1.5 0V1.75a.25.25 0 0 0-.25-.25h-8.5a.25.25 0 0 0-.25.25Zm13.274 9.537v-.001l-4.557 4.45a.75.75 0 0 1-1.055-.008l-1.943-1.95a.75.75 0 0 1 1.062-1.058l1.419 1.425 4.026-3.932a.75.75 0 1 1 1.048 1.074ZM4.75 4h4.5a.75.75 0 0 1 0 1.5h-4.5a.75.75 0 0 1 0-1.5ZM4 7.75A.75.75 0 0 1 4.75 7h2a.75.75 0 0 1 0 1.5h-2A.75.75 0 0 1 4 7.75Z"/></svg>');--md-admonition-icon--info:url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"/></svg>');--md-admonition-icon--tip:url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M3.499.75a.75.75 0 0 1 1.5 0v.996C5.9 2.903 6.793 3.65 7.662 4.376l.24.202c-.036-.694.055-1.422.426-2.163C9.1.873 10.794-.045 12.622.26 14.408.558 16 1.94 16 4.25c0 1.278-.954 2.575-2.44 2.734l.146.508.065.22c.203.701.412 1.455.476 2.226.142 1.707-.4 3.03-1.487 3.898C11.714 14.671 10.27 15 8.75 15h-6a.75.75 0 0 1 0-1.5h1.376a4.484 4.484 0 0 1-.563-1.191 3.835 3.835 0 0 1-.05-2.063 4.647 4.647 0 0 1-2.025-.293.75.75 0 0 1 .525-1.406c1.357.507 2.376-.006 2.698-.318l.009-.01a.747.747 0 0 1 1.06 0 .748.748 0 0 1-.012 1.074c-.912.92-.992 1.835-.768 2.586.221.74.745 1.337 1.196 1.621H8.75c1.343 0 2.398-.296 3.074-.836.635-.507 1.036-1.31.928-2.602-.05-.603-.216-1.224-.422-1.93l-.064-.221c-.12-.407-.246-.84-.353-1.29a2.425 2.425 0 0 1-.507-.441 3.075 3.075 0 0 1-.633-1.248.75.75 0 0 1 1.455-.364c.046.185.144.436.31.627.146.168.353.305.712.305.738 0 1.25-.615 1.25-1.25 0-1.47-.95-2.315-2.123-2.51-1.172-.196-2.227.387-2.706 1.345-.46.92-.27 1.774.019 3.062l.042.19a.884.884 0 0 1 .01.05c.348.443.666.949.94 1.553a.75.75 0 1 1-1.365.62c-.553-1.217-1.32-1.94-2.3-2.768L6.7 5.527c-.814-.68-1.75-1.462-2.692-2.619a3.737 3.737 0 0 0-1.023.88c-.406.495-.663 1.036-.722 1.508.116.122.306.21.591.239.388.038.797-.06 1.032-.19a.75.75 0 0 1 .728 1.31c-.515.287-1.23.439-1.906.373-.682-.067-1.473-.38-1.879-1.193L.75 5.677V5.5c0-.984.48-1.94 1.077-2.664.46-.559 1.05-1.055 1.673-1.353V.75Z"/></svg>');--md-admonition-icon--success:url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/></svg>');--md-admonition-icon--question:url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.92 6.085h.001a.749.749 0 1 1-1.342-.67c.169-.339.436-.701.849-.977C6.845 4.16 7.369 4 8 4a2.756 2.756 0 0 1 1.637.525c.503.377.863.965.863 1.725 0 .448-.115.83-.329 1.15-.205.307-.47.513-.692.662-.109.072-.22.138-.313.195l-.006.004a6.24 6.24 0 0 0-.26.16.952.952 0 0 0-.276.245.75.75 0 0 1-1.248-.832c.184-.264.42-.489.692-.661.103-.067.207-.132.313-.195l.007-.004c.1-.061.182-.11.258-.161a.969.969 0 0 0 .277-.245C8.96 6.514 9 6.427 9 6.25a.612.612 0 0 0-.262-.525A1.27 1.27 0 0 0 8 5.5c-.369 0-.595.09-.74.187a1.01 1.01 0 0 0-.34.398ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"/></svg>');--md-admonition-icon--warning:url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575Zm1.763.707a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm.53 3.996v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"/></svg>');--md-admonition-icon--failure:url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M2.344 2.343h-.001a8 8 0 0 1 11.314 11.314A8.002 8.002 0 0 1 .234 10.089a8 8 0 0 1 2.11-7.746Zm1.06 10.253a6.5 6.5 0 1 0 9.108-9.275 6.5 6.5 0 0 0-9.108 9.275ZM6.03 4.97 8 6.94l1.97-1.97a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l1.97 1.97a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-1.97 1.97a.749.749 0 0 1-1.275-.326.749.749 0 0 1 .215-.734L6.94 8 4.97 6.03a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018Z"/></svg>');--md-admonition-icon--danger:url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M9.504.43a1.516 1.516 0 0 1 2.437 1.713L10.415 5.5h2.123c1.57 0 2.346 1.909 1.22 3.004l-7.34 7.142a1.249 1.249 0 0 1-.871.354h-.302a1.25 1.25 0 0 1-1.157-1.723L5.633 10.5H3.462c-1.57 0-2.346-1.909-1.22-3.004L9.503.429Zm1.047 1.074L3.286 8.571A.25.25 0 0 0 3.462 9H6.75a.75.75 0 0 1 .694 1.034l-1.713 4.188 6.982-6.793A.25.25 0 0 0 12.538 7H9.25a.75.75 0 0 1-.683-1.06l2.008-4.418.003-.006a.036.036 0 0 0-.004-.009l-.006-.006-.008-.001c-.003 0-.006.002-.009.004Z"/></svg>');--md-admonition-icon--bug:url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M4.72.22a.75.75 0 0 1 1.06 0l1 .999a3.488 3.488 0 0 1 2.441 0l.999-1a.748.748 0 0 1 1.265.332.75.75 0 0 1-.205.729l-.775.776c.616.63.995 1.493.995 2.444v.327c0 .1-.009.197-.025.292.408.14.764.392 1.029.722l1.968-.787a.75.75 0 0 1 .556 1.392L13 7.258V9h2.25a.75.75 0 0 1 0 1.5H13v.5c0 .409-.049.806-.141 1.186l2.17.868a.75.75 0 0 1-.557 1.392l-2.184-.873A4.997 4.997 0 0 1 8 16a4.997 4.997 0 0 1-4.288-2.427l-2.183.873a.75.75 0 0 1-.558-1.392l2.17-.868A5.036 5.036 0 0 1 3 11v-.5H.75a.75.75 0 0 1 0-1.5H3V7.258L.971 6.446a.75.75 0 0 1 .558-1.392l1.967.787c.265-.33.62-.583 1.03-.722a1.677 1.677 0 0 1-.026-.292V4.5c0-.951.38-1.814.995-2.444L4.72 1.28a.75.75 0 0 1 0-1.06Zm.53 6.28a.75.75 0 0 0-.75.75V11a3.5 3.5 0 1 0 7 0V7.25a.75.75 0 0 0-.75-.75ZM6.173 5h3.654A.172.172 0 0 0 10 4.827V4.5a2 2 0 1 0-4 0v.327c0 .096.077.173.173.173Z"/></svg>');--md-admonition-icon--example:url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M5 5.782V2.5h-.25a.75.75 0 0 1 0-1.5h6.5a.75.75 0 0 1 0 1.5H11v3.282l3.666 5.76C15.619 13.04 14.543 15 12.767 15H3.233c-1.776 0-2.852-1.96-1.899-3.458Zm-2.4 6.565a.75.75 0 0 0 .633 1.153h9.534a.75.75 0 0 0 .633-1.153L12.225 10.5h-8.45ZM9.5 2.5h-3V6c0 .143-.04.283-.117.403L4.73 9h6.54L9.617 6.403A.746.746 0 0 1 9.5 6Z"/></svg>');--md-admonition-icon--quote:url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M1.75 2.5h10.5a.75.75 0 0 1 0 1.5H1.75a.75.75 0 0 1 0-1.5Zm4 5h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5Zm0 5h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5ZM2.5 7.75v6a.75.75 0 0 1-1.5 0v-6a.75.75 0 0 1 1.5 0Z"/></svg>');}</style>
+
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../termynal.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="yellow" data-md-color-accent="red">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#development" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Catasto Ingest" class="md-header__button md-logo" aria-label="Catasto Ingest" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Catasto Ingest
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Development
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="yellow" data-md-color-accent="red"  aria-label="Switch to Dark Mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to Dark Mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6zm0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4zM7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="lime"  aria-label="Switch to Light Mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to Light Mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3Z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+    
+  
+  Welcome to Catasto Ingest
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
+        
+  
+    
+  
+  Development
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Catasto Ingest" class="md-nav__button md-logo" aria-label="Catasto Ingest" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    Catasto Ingest
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Welcome to Catasto Ingest
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Development
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Development
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-get-started" class="md-nav__link">
+    <span class="md-ellipsis">
+      How to get started
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How to get started">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#start-a-complete-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Start a complete environment
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Start a complete environment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#start-the-stack" class="md-nav__link">
+    <span class="md-ellipsis">
+      Start the stack
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#monitor-the-services-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      Monitor the services status
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#access-the-gui-of-prefect-and-minio" class="md-nav__link">
+    <span class="md-ellipsis">
+      Access the GUI of Prefect and Minio
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Access the GUI of Prefect and Minio">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#access-minio" class="md-nav__link">
+    <span class="md-ellipsis">
+      Access Minio
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#access-prefect" class="md-nav__link">
+    <span class="md-ellipsis">
+      Access Prefect
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configure-the-storage-and-deployment-of-prefect-flows" class="md-nav__link">
+    <span class="md-ellipsis">
+      Configure the storage and deployment of Prefect flows
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configure the storage and deployment of Prefect flows">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#create-the-bucket-for-the-flows-storage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Create the bucket for the flows storage
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deployment-of-a-flow-in-prefect" class="md-nav__link">
+    <span class="md-ellipsis">
+      Deployment of a flow in Prefect
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#execute-a-deployment-in-prefect" class="md-nav__link">
+    <span class="md-ellipsis">
+      Execute a deployment in Prefect
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#restart-the-stack-from-scratch" class="md-nav__link">
+    <span class="md-ellipsis">
+      Restart the stack from scratch
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+<h1 id="development">Development</h1>
+<h2 id="how-to-get-started">How to get started</h2>
+<p>Let's introduce the journey for developers 🛫 to managing the ingestion process of cadaster data.</p>
+<h3 id="start-a-complete-environment">Start a complete environment</h3>
+<p>The repository has batteries included to manage and monitor the workflows to ingest the data into the target
+database. A Docker Compose script is provided to start the different components:</p>
+<ul>
+<li><em>Prefect</em> with server and agents</li>
+<li><em>Minio</em> to host the code and data</li>
+<li>A python virtual environment to deploy Prefect flows</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Please note that the <code>docker-compose-prefect.yml</code> file under <code>scripts/docker</code> is heavily influenced by this project <a href="https://github.com/rpeden/prefect-docker-compose">https://github.com/rpeden/prefect-docker-compose</a>. Kudos to <a href="https://github.com/rpeden">@rpeden</a> for that.</p>
+</div>
+<h4 id="start-the-stack">Start the stack</h4>
+<p>All the services declared in the script <code>scripts/docker/docker-compose-prefect.yml</code> will be deployed and
+can communicate within the internal network interface <code>prefect-network</code> defined in the compose file. Use the
+following command <code>docker compose</code> to start the stack:</p>
+<div class="termy" data-termynal data-ty-macos data-ty-title="bash"><span data-ty="input" data-ty-prompt="$">docker compose -f scripts/docker/docker-compose-prefect.yml --profile agent --profile server --profile queue --profile minio --profile cli up -d</span><span data-ty><br>[+] Running 12/12<br> ✔ Network prefect-network                        Created                                                                                            0.0s <br> ✔ Volume &quot;docker_db&quot;                             Created                                                                                            0.0s <br> ✔ Volume &quot;docker_minio&quot;                          Created                                                                                            0.0s <br> ✔ Volume &quot;docker_cli&quot;                            Created                                                                                            0.0s <br> ✔ Volume &quot;docker_prefect&quot;                        Created                                                                                            0.0s <br> ✔ Container docker-minio-1                       Started                                                                                            0.1s <br> ✔ Container docker-cli-1                         Started                                                                                            0.1s <br> ✔ Container docker-db-1                          Started                                                                                            0.1s <br> ✔ Container docker-prefect-1                     Started                                                                                            0.1s <br> ✔ Container docker-prefect_agent_default-1       Started                                                                                            0.2s <br> ✔ Container docker-prefect_work_queue_catasto-1  Started                                                                                            0.2s <br> ✔ Container docker-prefect_agent_catasto-1       Started                                                                                            0.0s                                          0.1s <br></span></div>
+
+<h4 id="monitor-the-services-status">Monitor the services status</h4>
+<p>All the services in the docker compose file have a profile that can be used to monitor only some of them.</p>
+<div class="termy" data-termynal data-ty-macos data-ty-title="bash"><span data-ty="input" data-ty-prompt="$">docker compose -f scripts/docker/docker-compose-prefect.yml --profile agent --profile server --profile queue --profile --profile minio ps -a</span><span data-ty><br>NAME                                  IMAGE                                 COMMAND                  SERVICE                      CREATED         STATUS                          PORTS<br>docker-db-1                           postgres:15.2-alpine                  &quot;docker-entrypoint.s…&quot;   db                           2 minutes ago   Up 2 minutes                    0.0.0.0:5432-&gt;5432/tcp<br>docker-prefect-1                      prefecthq/prefect:2.14.15-python3.9   &quot;/opt/prefect/entryp…&quot;   prefect                      2 minutes ago   Up 2 minutes                    0.0.0.0:4200-&gt;4200/tcp<br>docker-prefect_agent_catasto-1        prefecthq/prefect:2.14.15-python3.9   &quot;/opt/prefect/entryp…&quot;   prefect_agent_catasto        2 minutes ago   Up 2 minutes                    <br>docker-prefect_agent_default-1        prefecthq/prefect:2.14.15-python3.9   &quot;/opt/prefect/entryp…&quot;   prefect_agent_default        2 minutes ago   Up 2 minutes                    <br>docker-prefect_work_queue_catasto-1   prefecthq/prefect:2.14.15-python3.9   &quot;/opt/prefect/entryp…&quot;   prefect_work_queue_catasto   2 minutes ago   Restarting (1) 51 seconds ago<br></span></div>
+
+<h3 id="access-the-gui-of-prefect-and-minio">Access the GUI of Prefect and Minio</h3>
+<p>Prefect and Minio are made available in the host machine with their default ports:</p>
+<ul>
+<li><em>Prefect</em> console is available on default port <code>4200</code> and doesn't require credentials;</li>
+<li><em>Minio</em> admin console is available on default port <code>9001</code> and requires credentials. Admin user and password are the default <code>minioadmin/minioadmin</code>. Please change them in your production environment.</li>
+</ul>
+<p>Optionally you can configure your local host file to use the same service name of the docker environment rather than <code>localhost</code>. In this case you can add these entries to your configuration. In <code>unix</code> based host machine edit the file <code>/etc/hosts</code>:</p>
+<div class="termy" data-termynal data-ty-macos data-ty-title="bash"><span data-ty="input" data-ty-prompt="$">sudo vi /etc/hosts</span><span class="termynal-comment" data-ty># Add the following</span><span data-ty>127.0.0.1       prefect<br>127.0.0.1       minio<br></span></div>
+
+<h4 id="access-minio">Access Minio</h4>
+<p><em>Minio</em> admin console is available from the host machine after the above configuration at the following
+URL: <a href="http://minio:9000">http://minio:9000</a>.</p>
+<p><img alt="Minio Login Page" src="../img/minio_login.png" /></p>
+<p>The login page of the Minio administration console will be shown. Fill the credentials with the following default values:</p>
+<ul>
+<li><strong>username</strong>: <em>minioadmin</em></li>
+<li><strong>password</strong>: <em>minioadmin</em></li>
+</ul>
+<p>and click on the <code>Login</code> button.</p>
+<p><img alt="Minio Buckets Page" src="../img/minio_empty_buckets.png" /></p>
+<p>The buckets page won't show any bucket in the bucket list. We will see how to create a new bucket for the storage of Prefect flows.</p>
+<h4 id="access-prefect">Access Prefect</h4>
+<p><em>Prefect</em> console is available from the host machine after the above configuration at the following URL: <a href="http://prefect:4200">http://prefect:4200</a>.</p>
+<p><img alt="Prefect Dashboard" src="../img/prefect_dashboard.png" /></p>
+<p>The dashboard page will be automatically loaded and display an empty situation at the beginning as well as the rest of the sections.</p>
+<h3 id="configure-the-storage-and-deployment-of-prefect-flows">Configure the storage and deployment of Prefect flows</h3>
+<p>A flow in Prefect can be executed from a local development environment or deployed and hosted remotely in a cloud object storage. For production it is recommended to configure a bucket where Prefect will store the flows code. Once a flow is deployed in Prefect there is a reference in a block where the code is located and how it can be executed. More information for Prefect deployments can be found <a href="https://docs.prefect.io/latest/concepts/deployments/">here</a>.
+In our case, we would like to store the flows in a dedicated Minio bucket so that we can make the deployment in production easier.</p>
+<h4 id="create-the-bucket-for-the-flows-storage">Create the bucket for the flows storage</h4>
+<p>From the Minio administration console let's open the <code>Buckets</code> section on the left panel</p>
+<p><img alt="Minio Create Bucket" src="../img/minio_create_bucket.png" /></p>
+<p>then click on the <code>Create Bucket</code> button:</p>
+<p><img alt="Minio Create Bucket Page" src="../img/minio_bucket_page.png" /></p>
+<p>Enter a bucket name, i.e. <code>prefect-flows</code> and then click on the <code>Create Bucket</code> button. The bucket will be created and be shown in the bucket list:</p>
+<p><img alt="Minio Bucket List" src="../img/minio_bucket_list.png" /></p>
+<p>For development and testing purposes let's make it publicly available. Click on the <code>prefect-flows</code> bucket and then click on the pencil icon 📝 close to <code>Access Policy</code> to edit the permission from <code>n/a</code> to <code>Public</code>:</p>
+<p><img alt="Minio Bucket Item" src="../img/minio_bucket_item.png" /></p>
+<p>Let's select <code>Public</code> from the dropdown list and finally click on the <code>Set</code> button. The <code>prefect-flows</code> bucket is now ready to store flows deployed in Prefect.</p>
+<h4 id="deployment-of-a-flow-in-prefect">Deployment of a flow in Prefect</h4>
+<p>In the repository we placed a simple prefect flow. The code is in the python file <code>flows/demo.py</code> and the flow is named <code>prefect flow</code>. That name will be used to display the flow in Prefect after the deployment process. The code is very simple and doesn't require additional dependencies but it simulates a whole ETL process and prove that Prefect is working properly in development.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span> <span class="nn">prefect</span> <span class="kn">import</span> <span class="n">task</span><span class="p">,</span> <span class="n">flow</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Define tasks using the @task decorator</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nd">@task</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;extract data&quot;</span><span class="p">,</span> <span class="n">log_prints</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">tags</span><span class="o">=</span><span class="s2">&quot;extract&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="k">def</span> <span class="nf">extract_data</span><span class="p">():</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="k">return</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">]</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="nd">@task</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;transform data&quot;</span><span class="p">,</span> <span class="n">log_prints</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">tags</span><span class="o">=</span><span class="s2">&quot;transform&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="k">def</span> <span class="nf">transform_data</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="k">return</span> <span class="p">[</span><span class="n">x</span> <span class="o">*</span> <span class="mi">2</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">data</span><span class="p">]</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="nd">@task</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;load data&quot;</span><span class="p">,</span> <span class="n">log_prints</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">tags</span><span class="o">=</span><span class="s2">&quot;load&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="k">def</span> <span class="nf">load_data</span><span class="p">(</span><span class="n">transformed_data</span><span class="p">):</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Transformed Data:&quot;</span><span class="p">,</span> <span class="n">transformed_data</span><span class="p">)</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="c1"># Create a flow</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="nd">@flow</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;prefect flow&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="k">def</span> <span class="nf">prefect_flow</span><span class="p">():</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    <span class="n">data</span> <span class="o">=</span> <span class="n">extract_data</span><span class="p">()</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>    <span class="n">transformed</span> <span class="o">=</span> <span class="n">transform_data</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>    <span class="n">load_data</span><span class="p">(</span><span class="n">transformed</span><span class="p">)</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>    <span class="n">prefect_flow</span><span class="p">()</span>
+</code></pre></div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Despite you are accessing the Prefect GUI in your host machine, you have to remember that the Prefect API are only available in the docker network <code>prefect-network</code> of the composition. So the Prefect client must be configured within a container which is connected to that network.</p>
+</div>
+<p>The composition already provides a <code>cli</code> service to mount your local flows to the container and execute the deployment script . It's just a command away from the container execution of a bash shell where you can run the deployment script. Use the following command to go into the container:</p>
+<div class="termy" data-termynal data-ty-macos data-ty-title="bash"><span data-ty="input" data-ty-prompt="$">docker compose -f scripts/docker/docker-compose-prefect.yml run cli</span><span data-ty><br>+pip install prefect-aws s3fs poetry<br>Collecting prefect-aws<br>  Downloading prefect_aws-0.4.7-py3-none-any.whl.metadata (3.7 kB)<br>Collecting s3fs<br>  Downloading s3fs-2023.12.2-py3-none-any.whl.metadata (1.6 kB)<br>Collecting poetry<br>  Downloading poetry-1.7.1-py3-none-any.whl.metadata (6.8 kB)<br>Collecting boto3&gt;=1.24.53 (from prefect-aws)<br>  Downloading boto3-1.34.23-py3-none-any.whl.metadata (6.6 kB)<br>Collecting botocore&gt;=1.27.53 (from prefect-aws)<br>  Downloading botocore-1.34.23-py3-none-any.whl.metadata (5.6 kB)<br>Collecting mypy-boto3-s3&gt;=1.24.94 (from prefect-aws)<br>  Downloading mypy_boto3_s3-1.34.14-py3-none-any.whl.metadata (17 kB)<br>Collecting mypy-boto3-secretsmanager&gt;=1.26.49 (from prefect-aws)<br>  Downloading mypy_boto3_secretsmanager-1.34.17-py3-none-any.whl.metadata (13 kB)<br>Requirement already satisfied: prefect&gt;=2.14.10 in /usr/local/lib/python3.10/site-packages (from prefect-aws) (2.14.15)<br>Collecting tenacity&gt;=8.0.0 (from prefect-aws)<br>  Downloading tenacity-8.2.3-py3-none-any.whl.metadata (1.0 kB)<br>Collecting aiobotocore&lt;3.0.0,&gt;=2.5.4 (from s3fs)<br>  Downloading aiobotocore-2.11.0-py3-none-any.whl.metadata (21 kB)<br>Requirement already satisfied: fsspec==2023.12.2 in /usr/local/lib/python3.10/site-packages (from s3fs) (2023.12.2)<br>Collecting aiohttp!=4.0.0a0,!=4.0.0a1 (from s3fs)<br>  Downloading aiohttp-3.9.1-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl.metadata (7.4 kB)<br>Collecting build&lt;2.0.0,&gt;=1.0.3 (from poetry)<br>  Downloading build-1.0.3-py3-none-any.whl.metadata (4.2 kB)<br>Collecting cachecontrol&lt;0.14.0,&gt;=0.13.0 (from cachecontrol[filecache]&lt;0.14.0,&gt;=0.13.0-&gt;poetry)<br>  Downloading cachecontrol-0.13.1-py3-none-any.whl.metadata (3.0 kB)<br>Collecting cleo&lt;3.0.0,&gt;=2.1.0 (from poetry)<br>  Downloading cleo-2.1.0-py3-none-any.whl.metadata (12 kB)<br>Collecting crashtest&lt;0.5.0,&gt;=0.4.1 (from poetry)<br>  Downloading crashtest-0.4.1-py3-none-any.whl (7.6 kB)<br>Collecting dulwich&lt;0.22.0,&gt;=0.21.2 (from poetry)<br>  Downloading dulwich-0.21.7-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl.metadata (4.3 kB)<br>Collecting fastjsonschema&lt;3.0.0,&gt;=2.18.0 (from poetry)<br>  Downloading fastjsonschema-2.19.1-py3-none-any.whl.metadata (2.1 kB)<br>Collecting installer&lt;0.8.0,&gt;=0.7.0 (from poetry)<br>  Downloading installer-0.7.0-py3-none-any.whl (453 kB)<br>     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 453.8/453.8 kB 3.7 MB/s eta 0:00:00<br>Collecting keyring&lt;25.0.0,&gt;=24.0.0 (from poetry)<br>  Downloading keyring-24.3.0-py3-none-any.whl.metadata (20 kB)<br>Requirement already satisfied: packaging&gt;=20.5 in /usr/local/lib/python3.10/site-packages (from poetry) (23.2)<br>Collecting pexpect&lt;5.0.0,&gt;=4.7.0 (from poetry)<br>  Downloading pexpect-4.9.0-py2.py3-none-any.whl.metadata (2.5 kB)<br>Collecting pkginfo&lt;2.0.0,&gt;=1.9.4 (from poetry)<br>  Downloading pkginfo-1.9.6-py3-none-any.whl (30 kB)<br>Collecting platformdirs&lt;4.0.0,&gt;=3.0.0 (from poetry)<br>  Downloading platformdirs-3.11.0-py3-none-any.whl.metadata (11 kB)<br>Collecting poetry-core==1.8.1 (from poetry)<br>  Using cached poetry_core-1.8.1-py3-none-any.whl.metadata (3.5 kB)<br>Collecting poetry-plugin-export&lt;2.0.0,&gt;=1.6.0 (from poetry)<br>  Downloading poetry_plugin_export-1.6.0-py3-none-any.whl.metadata (2.8 kB)<br>Collecting pyproject-hooks&lt;2.0.0,&gt;=1.0.0 (from poetry)<br>  Downloading pyproject_hooks-1.0.0-py3-none-any.whl (9.3 kB)<br>Requirement already satisfied: requests&lt;3.0,&gt;=2.26 in /usr/local/lib/python3.10/site-packages (from poetry) (2.31.0)<br>Collecting requests-toolbelt&lt;2,&gt;=0.9.1 (from poetry)<br>  Downloading requests_toolbelt-1.0.0-py2.py3-none-any.whl (54 kB)<br>     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 54.5/54.5 kB 4.7 MB/s eta 0:00:00<br>Collecting shellingham&lt;2.0,&gt;=1.5 (from poetry)<br>  Downloading shellingham-1.5.4-py2.py3-none-any.whl.metadata (3.5 kB)<br>Collecting tomli&lt;3.0.0,&gt;=2.0.1 (from poetry)<br>  Downloading tomli-2.0.1-py3-none-any.whl (12 kB)<br>Collecting tomlkit&lt;1.0.0,&gt;=0.11.4 (from poetry)<br>  Downloading tomlkit-0.12.3-py3-none-any.whl.metadata (2.7 kB)<br>Collecting trove-classifiers&gt;=2022.5.19 (from poetry)<br>  Downloading trove_classifiers-2024.1.8-py3-none-any.whl.metadata (2.2 kB)<br>Collecting virtualenv&lt;21.0.0,&gt;=20.23.0 (from poetry)<br>  Downloading virtualenv-20.25.0-py3-none-any.whl.metadata (4.5 kB)<br>Collecting botocore&gt;=1.27.53 (from prefect-aws)<br>  Downloading botocore-1.34.22-py3-none-any.whl.metadata (5.6 kB)<br>Collecting wrapt&lt;2.0.0,&gt;=1.10.10 (from aiobotocore&lt;3.0.0,&gt;=2.5.4-&gt;s3fs)<br>  Downloading wrapt-1.16.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl.metadata (6.6 kB)<br>Collecting aioitertools&lt;1.0.0,&gt;=0.5.1 (from aiobotocore&lt;3.0.0,&gt;=2.5.4-&gt;s3fs)<br>  Downloading aioitertools-0.11.0-py3-none-any.whl (23 kB)<br>Requirement already satisfied: attrs&gt;=17.3.0 in /usr/local/lib/python3.10/site-packages (from aiohttp!=4.0.0a0,!=4.0.0a1-&gt;s3fs) (23.2.0)<br>Collecting multidict&lt;7.0,&gt;=4.5 (from aiohttp!=4.0.0a0,!=4.0.0a1-&gt;s3fs)<br>  Downloading multidict-6.0.4-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl (116 kB)<br>     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 116.6/116.6 kB 1.2 MB/s eta 0:00:00<br>Collecting yarl&lt;2.0,&gt;=1.0 (from aiohttp!=4.0.0a0,!=4.0.0a1-&gt;s3fs)<br>  Downloading yarl-1.9.4-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl.metadata (31 kB)<br>Collecting frozenlist&gt;=1.1.1 (from aiohttp!=4.0.0a0,!=4.0.0a1-&gt;s3fs)<br>  Downloading frozenlist-1.4.1-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl.metadata (12 kB)<br>Collecting aiosignal&gt;=1.1.2 (from aiohttp!=4.0.0a0,!=4.0.0a1-&gt;s3fs)<br>  Downloading aiosignal-1.3.1-py3-none-any.whl (7.6 kB)<br>Requirement already satisfied: async-timeout&lt;5.0,&gt;=4.0 in /usr/local/lib/python3.10/site-packages (from aiohttp!=4.0.0a0,!=4.0.0a1-&gt;s3fs) (4.0.3)<br>INFO: pip is looking at multiple versions of boto3 to determine which version is compatible with other requirements. This could take a while.<br>Collecting boto3&gt;=1.24.53 (from prefect-aws)<br>  Downloading boto3-1.34.22-py3-none-any.whl.metadata (6.6 kB)<br>Collecting jmespath&lt;2.0.0,&gt;=0.7.1 (from boto3&gt;=1.24.53-&gt;prefect-aws)<br>  Downloading jmespath-1.0.1-py3-none-any.whl (20 kB)<br>Collecting s3transfer&lt;0.11.0,&gt;=0.10.0 (from boto3&gt;=1.24.53-&gt;prefect-aws)<br>  Downloading s3transfer-0.10.0-py3-none-any.whl.metadata (1.7 kB)<br>Requirement already satisfied: python-dateutil&lt;3.0.0,&gt;=2.1 in /usr/local/lib/python3.10/site-packages (from botocore&gt;=1.27.53-&gt;prefect-aws) (2.8.2)<br>Requirement already satisfied: urllib3&lt;2.1,&gt;=1.25.4 in /usr/local/lib/python3.10/site-packages (from botocore&gt;=1.27.53-&gt;prefect-aws) (1.26.18)<br>Collecting msgpack&gt;=0.5.2 (from cachecontrol&lt;0.14.0,&gt;=0.13.0-&gt;cachecontrol[filecache]&lt;0.14.0,&gt;=0.13.0-&gt;poetry)<br>  Downloading msgpack-1.0.7-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl.metadata (9.1 kB)<br>Collecting filelock&gt;=3.8.0 (from cachecontrol[filecache]&lt;0.14.0,&gt;=0.13.0-&gt;poetry)<br>  Downloading filelock-3.13.1-py3-none-any.whl.metadata (2.8 kB)<br>Collecting rapidfuzz&lt;4.0.0,&gt;=3.0.0 (from cleo&lt;3.0.0,&gt;=2.1.0-&gt;poetry)<br>  Downloading rapidfuzz-3.6.1-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl.metadata (11 kB)<br>Collecting jaraco.classes (from keyring&lt;25.0.0,&gt;=24.0.0-&gt;poetry)<br>  Downloading jaraco.classes-3.3.0-py3-none-any.whl.metadata (2.9 kB)<br>Collecting importlib-metadata&gt;=4.11.4 (from keyring&lt;25.0.0,&gt;=24.0.0-&gt;poetry)<br>  Downloading importlib_metadata-7.0.1-py3-none-any.whl.metadata (4.9 kB)<br>Collecting SecretStorage&gt;=3.2 (from keyring&lt;25.0.0,&gt;=24.0.0-&gt;poetry)<br>  Downloading SecretStorage-3.3.3-py3-none-any.whl (15 kB)<br>Collecting jeepney&gt;=0.4.2 (from keyring&lt;25.0.0,&gt;=24.0.0-&gt;poetry)<br>  Downloading jeepney-0.8.0-py3-none-any.whl (48 kB)<br>     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 48.4/48.4 kB 2.7 MB/s eta 0:00:00<br>Requirement already satisfied: typing-extensions&gt;=4.1.0 in /usr/local/lib/python3.10/site-packages (from mypy-boto3-s3&gt;=1.24.94-&gt;prefect-aws) (4.9.0)<br>Collecting ptyprocess&gt;=0.5 (from pexpect&lt;5.0.0,&gt;=4.7.0-&gt;poetry)<br>  Downloading ptyprocess-0.7.0-py2.py3-none-any.whl (13 kB)<br>Requirement already satisfied: aiosqlite&gt;=0.17.0 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (0.19.0)<br>Requirement already satisfied: alembic&lt;2.0.0,&gt;=1.7.5 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (1.13.1)<br>Requirement already satisfied: apprise&lt;2.0.0,&gt;=1.1.0 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (1.7.1)<br>Requirement already satisfied: asyncpg&gt;=0.23 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (0.29.0)<br>Requirement already satisfied: click&lt;8.2,&gt;=8.0 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (8.1.7)<br>Requirement already satisfied: cryptography&gt;=36.0.1 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (41.0.7)<br>Requirement already satisfied: dateparser&lt;2.0.0,&gt;=1.1.1 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (1.2.0)<br>Requirement already satisfied: docker&lt;7.0,&gt;=4.0 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (6.1.3)<br>Requirement already satisfied: graphviz&gt;=0.20.1 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (0.20.1)<br>Requirement already satisfied: griffe&gt;=0.20.0 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (0.38.1)<br>Requirement already satisfied: jinja2&lt;4.0.0,&gt;=3.0.0 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (3.1.3)<br>Requirement already satisfied: kubernetes&lt;29.0.0,&gt;=24.2.0 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (28.1.0)<br>Requirement already satisfied: pytz&lt;2024,&gt;=2021.1 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (2023.3.post1)<br>Requirement already satisfied: readchar&lt;5.0.0,&gt;=4.0.0 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (4.0.5)<br>Requirement already satisfied: sqlalchemy!=1.4.33,&lt;3.0.0,&gt;=1.4.22 in /usr/local/lib/python3.10/site-packages (from sqlalchemy[asyncio]!=1.4.33,&lt;3.0.0,&gt;=1.4.22-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (2.0.25)<br>Requirement already satisfied: typer&gt;=0.4.2 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (0.9.0)<br>Requirement already satisfied: anyio&lt;4.0.0,&gt;=3.7.1 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (3.7.1)<br>Requirement already satisfied: asgi-lifespan&lt;3.0,&gt;=1.0 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (2.1.0)<br>Requirement already satisfied: cachetools&lt;6.0,&gt;=5.3 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (5.3.2)<br>Requirement already satisfied: cloudpickle&lt;4.0,&gt;=2.0 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (3.0.0)<br>Requirement already satisfied: coolname&lt;3.0.0,&gt;=1.0.4 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (2.2.0)<br>Requirement already satisfied: croniter&lt;3.0.0,&gt;=1.0.12 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (2.0.1)<br>Requirement already satisfied: httpcore&lt;2.0.0,&gt;=0.15.0 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (1.0.2)<br>Requirement already satisfied: httpx!=0.23.2,&gt;=0.23 in /usr/local/lib/python3.10/site-packages (from httpx[http2]!=0.23.2,&gt;=0.23-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (0.26.0)<br>Requirement already satisfied: jsonpatch&lt;2.0,&gt;=1.32 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (1.33)<br>Requirement already satisfied: jsonschema&lt;5.0.0,&gt;=3.2.0 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (4.20.0)<br>Requirement already satisfied: orjson&lt;4.0,&gt;=3.7 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (3.9.10)<br>Requirement already satisfied: pathspec&gt;=0.8.0 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (0.12.1)<br>Requirement already satisfied: pydantic!=2.0.0,!=2.0.1,!=2.1.0,&lt;3.0.0,&gt;=1.10.0 in /usr/local/lib/python3.10/site-packages (from pydantic[email]!=2.0.0,!=2.0.1,!=2.1.0,&lt;3.0.0,&gt;=1.10.0-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (2.5.3)<br>Requirement already satisfied: python-slugify&lt;9.0,&gt;=5.0 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (8.0.1)<br>Requirement already satisfied: pyyaml&lt;7.0.0,&gt;=5.4.1 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (6.0.1)<br>Requirement already satisfied: rich&lt;14.0,&gt;=11.0 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (13.7.0)<br>Requirement already satisfied: ruamel.yaml&gt;=0.17.0 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (0.18.5)<br>Requirement already satisfied: sniffio&lt;2.0.0,&gt;=1.3.0 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (1.3.0)<br>Requirement already satisfied: starlette&lt;0.33.0,&gt;=0.27.0 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (0.32.0.post1)<br>Requirement already satisfied: toml&gt;=0.10.0 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (0.10.2)<br>Requirement already satisfied: ujson&lt;6.0.0,&gt;=5.8.0 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (5.9.0)<br>Requirement already satisfied: uvicorn&gt;=0.14.0 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (0.25.0)<br>Requirement already satisfied: websockets&lt;13.0,&gt;=10.4 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (12.0)<br>Requirement already satisfied: pendulum&lt;3.0 in /usr/local/lib/python3.10/site-packages (from prefect&gt;=2.14.10-&gt;prefect-aws) (2.1.2)<br>Requirement already satisfied: charset-normalizer&lt;4,&gt;=2 in /usr/local/lib/python3.10/site-packages (from requests&lt;3.0,&gt;=2.26-&gt;poetry) (3.3.2)<br>Requirement already satisfied: idna&lt;4,&gt;=2.5 in /usr/local/lib/python3.10/site-packages (from requests&lt;3.0,&gt;=2.26-&gt;poetry) (3.6)<br>Requirement already satisfied: certifi&gt;=2017.4.17 in /usr/local/lib/python3.10/site-packages (from requests&lt;3.0,&gt;=2.26-&gt;poetry) (2023.11.17)<br>Collecting distlib&lt;1,&gt;=0.3.7 (from virtualenv&lt;21.0.0,&gt;=20.23.0-&gt;poetry)<br>  Downloading distlib-0.3.8-py2.py3-none-any.whl.metadata (5.1 kB)<br>Requirement already satisfied: Mako in /usr/local/lib/python3.10/site-packages (from alembic&lt;2.0.0,&gt;=1.7.5-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (1.3.0)<br>Requirement already satisfied: exceptiongroup in /usr/local/lib/python3.10/site-packages (from anyio&lt;4.0.0,&gt;=3.7.1-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (1.2.0)<br>Requirement already satisfied: requests-oauthlib in /usr/local/lib/python3.10/site-packages (from apprise&lt;2.0.0,&gt;=1.1.0-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (1.3.1)<br>Requirement already satisfied: markdown in /usr/local/lib/python3.10/site-packages (from apprise&lt;2.0.0,&gt;=1.1.0-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (3.5.2)<br>Requirement already satisfied: cffi&gt;=1.12 in /usr/local/lib/python3.10/site-packages (from cryptography&gt;=36.0.1-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (1.16.0)<br>Requirement already satisfied: regex!=2019.02.19,!=2021.8.27 in /usr/local/lib/python3.10/site-packages (from dateparser&lt;2.0.0,&gt;=1.1.1-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (2023.12.25)<br>Requirement already satisfied: tzlocal in /usr/local/lib/python3.10/site-packages (from dateparser&lt;2.0.0,&gt;=1.1.1-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (5.2)<br>Requirement already satisfied: websocket-client&gt;=0.32.0 in /usr/local/lib/python3.10/site-packages (from docker&lt;7.0,&gt;=4.0-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (1.7.0)<br>Requirement already satisfied: colorama&gt;=0.4 in /usr/local/lib/python3.10/site-packages (from griffe&gt;=0.20.0-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (0.4.6)<br>Requirement already satisfied: h11&lt;0.15,&gt;=0.13 in /usr/local/lib/python3.10/site-packages (from httpcore&lt;2.0.0,&gt;=0.15.0-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (0.14.0)<br>Requirement already satisfied: h2&lt;5,&gt;=3 in /usr/local/lib/python3.10/site-packages (from httpx[http2]!=0.23.2,&gt;=0.23-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (4.1.0)<br>Collecting zipp&gt;=0.5 (from importlib-metadata&gt;=4.11.4-&gt;keyring&lt;25.0.0,&gt;=24.0.0-&gt;poetry)<br>  Downloading zipp-3.17.0-py3-none-any.whl.metadata (3.7 kB)<br>Requirement already satisfied: MarkupSafe&gt;=2.0 in /usr/local/lib/python3.10/site-packages (from jinja2&lt;4.0.0,&gt;=3.0.0-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (2.1.3)<br>Requirement already satisfied: jsonpointer&gt;=1.9 in /usr/local/lib/python3.10/site-packages (from jsonpatch&lt;2.0,&gt;=1.32-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (2.4)<br>Requirement already satisfied: jsonschema-specifications&gt;=2023.03.6 in /usr/local/lib/python3.10/site-packages (from jsonschema&lt;5.0.0,&gt;=3.2.0-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (2023.12.1)<br>Requirement already satisfied: referencing&gt;=0.28.4 in /usr/local/lib/python3.10/site-packages (from jsonschema&lt;5.0.0,&gt;=3.2.0-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (0.32.1)<br>Requirement already satisfied: rpds-py&gt;=0.7.1 in /usr/local/lib/python3.10/site-packages (from jsonschema&lt;5.0.0,&gt;=3.2.0-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (0.16.2)<br>Requirement already satisfied: six&gt;=1.9.0 in /usr/local/lib/python3.10/site-packages (from kubernetes&lt;29.0.0,&gt;=24.2.0-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (1.16.0)<br>Requirement already satisfied: google-auth&gt;=1.0.1 in /usr/local/lib/python3.10/site-packages (from kubernetes&lt;29.0.0,&gt;=24.2.0-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (2.26.2)<br>Requirement already satisfied: oauthlib&gt;=3.2.2 in /usr/local/lib/python3.10/site-packages (from kubernetes&lt;29.0.0,&gt;=24.2.0-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (3.2.2)<br>Requirement already satisfied: pytzdata&gt;=2020.1 in /usr/local/lib/python3.10/site-packages (from pendulum&lt;3.0-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (2020.1)<br>Requirement already satisfied: annotated-types&gt;=0.4.0 in /usr/local/lib/python3.10/site-packages (from pydantic!=2.0.0,!=2.0.1,!=2.1.0,&lt;3.0.0,&gt;=1.10.0-&gt;pydantic[email]!=2.0.0,!=2.0.1,!=2.1.0,&lt;3.0.0,&gt;=1.10.0-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (0.6.0)<br>Requirement already satisfied: pydantic-core==2.14.6 in /usr/local/lib/python3.10/site-packages (from pydantic!=2.0.0,!=2.0.1,!=2.1.0,&lt;3.0.0,&gt;=1.10.0-&gt;pydantic[email]!=2.0.0,!=2.0.1,!=2.1.0,&lt;3.0.0,&gt;=1.10.0-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (2.14.6)<br>Requirement already satisfied: email-validator&gt;=2.0.0 in /usr/local/lib/python3.10/site-packages (from pydantic[email]!=2.0.0,!=2.0.1,!=2.1.0,&lt;3.0.0,&gt;=1.10.0-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (2.1.0.post1)<br>Requirement already satisfied: text-unidecode&gt;=1.3 in /usr/local/lib/python3.10/site-packages (from python-slugify&lt;9.0,&gt;=5.0-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (1.3)<br>Requirement already satisfied: setuptools&gt;=41.0 in /usr/local/lib/python3.10/site-packages (from readchar&lt;5.0.0,&gt;=4.0.0-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (69.0.3)<br>Requirement already satisfied: markdown-it-py&gt;=2.2.0 in /usr/local/lib/python3.10/site-packages (from rich&lt;14.0,&gt;=11.0-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (3.0.0)<br>Requirement already satisfied: pygments&lt;3.0.0,&gt;=2.13.0 in /usr/local/lib/python3.10/site-packages (from rich&lt;14.0,&gt;=11.0-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (2.17.2)<br>Requirement already satisfied: ruamel.yaml.clib&gt;=0.2.7 in /usr/local/lib/python3.10/site-packages (from ruamel.yaml&gt;=0.17.0-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (0.2.8)<br>Requirement already satisfied: greenlet!=0.4.17 in /usr/local/lib/python3.10/site-packages (from sqlalchemy!=1.4.33,&lt;3.0.0,&gt;=1.4.22-&gt;sqlalchemy[asyncio]!=1.4.33,&lt;3.0.0,&gt;=1.4.22-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (3.0.3)<br>Collecting more-itertools (from jaraco.classes-&gt;keyring&lt;25.0.0,&gt;=24.0.0-&gt;poetry)<br>  Downloading more_itertools-10.2.0-py3-none-any.whl.metadata (34 kB)<br>Requirement already satisfied: pycparser in /usr/local/lib/python3.10/site-packages (from cffi&gt;=1.12-&gt;cryptography&gt;=36.0.1-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (2.21)<br>Requirement already satisfied: dnspython&gt;=2.0.0 in /usr/local/lib/python3.10/site-packages (from email-validator&gt;=2.0.0-&gt;pydantic[email]!=2.0.0,!=2.0.1,!=2.1.0,&lt;3.0.0,&gt;=1.10.0-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (2.4.2)<br>Requirement already satisfied: pyasn1-modules&gt;=0.2.1 in /usr/local/lib/python3.10/site-packages (from google-auth&gt;=1.0.1-&gt;kubernetes&lt;29.0.0,&gt;=24.2.0-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (0.3.0)<br>Requirement already satisfied: rsa&lt;5,&gt;=3.1.4 in /usr/local/lib/python3.10/site-packages (from google-auth&gt;=1.0.1-&gt;kubernetes&lt;29.0.0,&gt;=24.2.0-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (4.9)<br>Requirement already satisfied: hyperframe&lt;7,&gt;=6.0 in /usr/local/lib/python3.10/site-packages (from h2&lt;5,&gt;=3-&gt;httpx[http2]!=0.23.2,&gt;=0.23-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (6.0.1)<br>Requirement already satisfied: hpack&lt;5,&gt;=4.0 in /usr/local/lib/python3.10/site-packages (from h2&lt;5,&gt;=3-&gt;httpx[http2]!=0.23.2,&gt;=0.23-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (4.0.0)<br>Requirement already satisfied: mdurl~=0.1 in /usr/local/lib/python3.10/site-packages (from markdown-it-py&gt;=2.2.0-&gt;rich&lt;14.0,&gt;=11.0-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (0.1.2)<br>Requirement already satisfied: pyasn1&lt;0.6.0,&gt;=0.4.6 in /usr/local/lib/python3.10/site-packages (from pyasn1-modules&gt;=0.2.1-&gt;google-auth&gt;=1.0.1-&gt;kubernetes&lt;29.0.0,&gt;=24.2.0-&gt;prefect&gt;=2.14.10-&gt;prefect-aws) (0.5.1)<br>Downloading prefect_aws-0.4.7-py3-none-any.whl (59 kB)<br>   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 59.9/59.9 kB 4.4 MB/s eta 0:00:00<br>Downloading s3fs-2023.12.2-py3-none-any.whl (28 kB)<br>Downloading poetry-1.7.1-py3-none-any.whl (235 kB)<br>   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 236.0/236.0 kB 2.7 MB/s eta 0:00:00<br>Using cached poetry_core-1.8.1-py3-none-any.whl (306 kB)<br>Downloading aiobotocore-2.11.0-py3-none-any.whl (76 kB)<br>   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 76.1/76.1 kB 2.3 MB/s eta 0:00:00<br>Downloading aiohttp-3.9.1-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl (1.2 MB)<br>   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.2/1.2 MB 2.5 MB/s eta 0:00:00<br>Downloading boto3-1.34.22-py3-none-any.whl (139 kB)<br>   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 139.3/139.3 kB 2.0 MB/s eta 0:00:00<br>Downloading botocore-1.34.22-py3-none-any.whl (11.9 MB)<br>   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 11.9/11.9 MB 4.9 MB/s eta 0:00:00<br>Downloading build-1.0.3-py3-none-any.whl (18 kB)<br>Downloading cachecontrol-0.13.1-py3-none-any.whl (22 kB)<br>Downloading cleo-2.1.0-py3-none-any.whl (78 kB)<br>   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 78.7/78.7 kB 5.2 MB/s eta 0:00:00<br>Downloading dulwich-0.21.7-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl (516 kB)<br>   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 516.7/516.7 kB 6.2 MB/s eta 0:00:00<br>Downloading fastjsonschema-2.19.1-py3-none-any.whl (23 kB)<br>Downloading keyring-24.3.0-py3-none-any.whl (38 kB)<br>Downloading mypy_boto3_s3-1.34.14-py3-none-any.whl (82 kB)<br>   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 82.7/82.7 kB 4.1 MB/s eta 0:00:00<br>Downloading mypy_boto3_secretsmanager-1.34.17-py3-none-any.whl (26 kB)<br>Downloading pexpect-4.9.0-py2.py3-none-any.whl (63 kB)<br>   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 63.8/63.8 kB 3.6 MB/s eta 0:00:00<br>Downloading platformdirs-3.11.0-py3-none-any.whl (17 kB)<br>Downloading poetry_plugin_export-1.6.0-py3-none-any.whl (10 kB)<br>Downloading shellingham-1.5.4-py2.py3-none-any.whl (9.8 kB)<br>Downloading tenacity-8.2.3-py3-none-any.whl (24 kB)<br>Downloading tomlkit-0.12.3-py3-none-any.whl (37 kB)<br>Downloading trove_classifiers-2024.1.8-py3-none-any.whl (13 kB)<br>Downloading virtualenv-20.25.0-py3-none-any.whl (3.8 MB)<br>   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.8/3.8 MB 4.0 MB/s eta 0:00:00<br>Downloading distlib-0.3.8-py2.py3-none-any.whl (468 kB)<br>   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 468.9/468.9 kB 4.1 MB/s eta 0:00:00<br>Downloading filelock-3.13.1-py3-none-any.whl (11 kB)<br>Downloading frozenlist-1.4.1-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl (238 kB)<br>   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 238.6/238.6 kB 5.3 MB/s eta 0:00:00<br>Downloading importlib_metadata-7.0.1-py3-none-any.whl (23 kB)<br>Downloading msgpack-1.0.7-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl (522 kB)<br>   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 522.4/522.4 kB 4.9 MB/s eta 0:00:00<br>Downloading rapidfuzz-3.6.1-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl (1.6 MB)<br>   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.6/1.6 MB 5.9 MB/s eta 0:00:00<br>Downloading s3transfer-0.10.0-py3-none-any.whl (82 kB)<br>   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 82.1/82.1 kB 3.2 MB/s eta 0:00:00<br>Downloading wrapt-1.16.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl (80 kB)<br>   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 80.4/80.4 kB 5.8 MB/s eta 0:00:00<br>Downloading yarl-1.9.4-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl (297 kB)<br>   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 297.7/297.7 kB 5.0 MB/s eta 0:00:00<br>Downloading jaraco.classes-3.3.0-py3-none-any.whl (5.9 kB)<br>Downloading zipp-3.17.0-py3-none-any.whl (7.4 kB)<br>Downloading more_itertools-10.2.0-py3-none-any.whl (57 kB)<br>   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 57.0/57.0 kB 13.5 MB/s eta 0:00:00<br>Installing collected packages: trove-classifiers, ptyprocess, fastjsonschema, distlib, zipp, wrapt, tomlkit, tomli, tenacity, shellingham, rapidfuzz, poetry-core, platformdirs, pkginfo, pexpect, mypy-boto3-secretsmanager, mypy-boto3-s3, multidict, msgpack, more-itertools, jmespath, jeepney, installer, frozenlist, filelock, dulwich, crashtest, aioitertools, yarl, virtualenv, requests-toolbelt, pyproject-hooks, jaraco.classes, importlib-metadata, cleo, cachecontrol, botocore, aiosignal, SecretStorage, s3transfer, build, aiohttp, keyring, boto3, aiobotocore, s3fs, prefect-aws, poetry-plugin-export, poetry<br>Successfully installed SecretStorage-3.3.3 aiobotocore-2.11.0 aiohttp-3.9.1 aioitertools-0.11.0 aiosignal-1.3.1 boto3-1.34.22 botocore-1.34.22 build-1.0.3 cachecontrol-0.13.1 cleo-2.1.0 crashtest-0.4.1 distlib-0.3.8 dulwich-0.21.7 fastjsonschema-2.19.1 filelock-3.13.1 frozenlist-1.4.1 importlib-metadata-7.0.1 installer-0.7.0 jaraco.classes-3.3.0 jeepney-0.8.0 jmespath-1.0.1 keyring-24.3.0 more-itertools-10.2.0 msgpack-1.0.7 multidict-6.0.4 mypy-boto3-s3-1.34.14 mypy-boto3-secretsmanager-1.34.17 pexpect-4.9.0 pkginfo-1.9.6 platformdirs-3.11.0 poetry-1.7.1 poetry-core-1.8.1 poetry-plugin-export-1.6.0 prefect-aws-0.4.7 ptyprocess-0.7.0 pyproject-hooks-1.0.0 rapidfuzz-3.6.1 requests-toolbelt-1.0.0 s3fs-2023.12.2 s3transfer-0.10.0 shellingham-1.5.4 tenacity-8.2.3 tomli-2.0.1 tomlkit-0.12.3 trove-classifiers-2024.1.8 virtualenv-20.25.0 wrapt-1.16.0 yarl-1.9.4 zipp-3.17.0<br>WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv<br><br>[notice] A new release of pip is available: 23.3.1 -&gt; 23.3.2<br>[notice] To update, run: pip install --upgrade pip<br>root@44e5f45ec73e:~/catasto# <br></span></div>
+
+<ul>
+<li>The first step is to configure the <code>prefect</code> client python package to use the following Prefect API endpoint <a href="http://prefect:4200/api">http://prefect:4200/api</a> which is made available by the <code>prefect</code> service in the composition.</li>
+</ul>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>This project is managing python configuration and dependencies through <code>poetry</code> so it is recommended to use the virtual environment from Poetry rather than the <code>prefect</code> python package installed globally by the Docker container.
+For production environments the project will make the python dependencies available from PyPI so that the container at runtime will install these additional dependencies in the Prefect image.</p>
+</div>
+<ul>
+<li>The second step is to install the python dependencies in the Docker container:</li>
+</ul>
+<div class="termy" data-termynal data-ty-macos data-ty-title="bash"><span data-ty="input" data-ty-prompt="$">poetry install</span><span data-ty><br>... # not displayed to save space<br>  • Installing prefect (2.14.16)<br>  • Installing prompt-toolkit (3.0.43)<br>  • Installing pymdown-extensions (10.7)<br>  • Installing stack-data (0.6.3)<br>  • Installing tenacity (8.2.3)<br>  • Installing ipython (8.20.0)<br>  • Installing mkdocs-material (9.5.4)<br>  • Installing prefect-aws (0.4.7)<br>  • Installing pyfiglet (0.8.post1)<br>  • Installing s3fs (2023.12.2)<br>  • Installing sister (0.1.0 /root/catasto/libs/src/sister)<br>  • Installing termynal (0.11.1)<br>  • Installing smidt (0.1.0 /root/catasto/libs/src/smidt)<br><br>Installing the current project: catasto-ingest (0.1.0)<br></span></div>
+
+<ul>
+<li>The third step is to activate the virtual environment:</li>
+</ul>
+<div class="termy" data-termynal data-ty-macos data-ty-title="bash"><span data-ty="input" data-ty-prompt="$">poetry shell</span><span data-ty><br>Spawning shell within /root/catasto/.venv<br>root@44e5f45ec73e:~/catasto# . /root/catasto/.venv/bin/activate<br>(catasto-ingest-py3.10) root@44e5f45ec73e:~/catasto#<br></span></div>
+
+<ul>
+<li>If your shell doesn't have the following environment variable set to <code>PREFECT_API_URL=http://prefect:4200/api</code> you have to configure it yourself by running:</li>
+</ul>
+<div class="termy" data-termynal data-ty-macos data-ty-title="bash"><span data-ty>(catasto-ingest-py3.10) root@44e5f45ec73e:~/catasto# prefect config set PREFECT_API_URL=http://prefect:4200/api<br><br>Set 'PREFECT_API_URL' to 'http://prefect:4200/api'.<br>PREFECT_API_URL is also set by an environment variable which will override your config value. Run `unset PREFECT_API_URL` to clear it.<br>Updated profile 'default'.<br></span></div>
+
+<p>For the <code>demo.py</code> flow we have already created a deployment script <code>flows/deployments/demo_deployment.py</code> in python so you have to just execute it:</p>
+<div class="termy" data-termynal data-ty-macos data-ty-title="bash"><span data-ty>(catasto-ingest-py3.10) root@44e5f45ec73e:~/catasto# python flows/deployments/demo_deployment.py<br><br></span></div>
+
+<p>If everything went well then a couple of Prefect blocks, namely <code>minio-admin</code> and <code>prefect-storage</code> should be available in the Prefect console at the following URL: <a href="http://prefect:4200/blocks">http://prefect:4200/blocks</a></p>
+<p><img alt="Prefect Blocks For Demo Flow" src="../img/prefect_blocks.png" /></p>
+<p>Also, the demo flow code should be available in the <code>prefect-flows</code> bucket at the following URL: <a href="http://minio:9001/browser/prefect-flows">http://minio:9001/browser/prefect-flows</a></p>
+<p><img alt="Minio Bucket For Demo Flow" src="../img/minio_demo_flow.png" /></p>
+<p>The deployment we'll be available and is ready to be executed now in the Prefect <code>Deployments</code> menu:</p>
+<p><img alt="Prefect Demo Flow Deployment" src="../img/prefect_demo_flow_deployment.png" /></p>
+<h3 id="execute-a-deployment-in-prefect">Execute a deployment in Prefect</h3>
+<p>Once a deployment is available and executable in Prefect it can be run directly in the GUI or programmatically. For development we will be using just the GUI, go to the <code>Deployments</code> menu and
+click on the three-points icon of the deployment line with the name <code>Prefect flow deployment</code>
+(flow name <code>prefect flow</code>):</p>
+<p><img alt="Prefect Demo Deployment Run" src="../img/prefect_run_demo_flow.png" /></p>
+<p>Start the execution by clicking the line <code>Quick run</code>:</p>
+<p><img alt="Prefect Flow Run" src="../img/prefect_flow_run.png" /></p>
+<p>In the section <code>Flow Runs</code> a new item appears with the orange color. It means that the flow is waiting for being executed and if everything will go well then it will become green.</p>
+<p><img alt="Prefect Flow Run Successful" src="../img/prefect_flow_run_green.png" /></p>
+<p>If you click on the flow run just executed a graph of the successfully completed execution and the log with all the details will be shown:</p>
+<p><img alt="Prefect Flow Run Graph" src="../img/prefect_flow_run_graph.png" /></p>
+<p>The graph is composed with all the tasks connected to the flow definition. The log shows all the details for each task:</p>
+<p><img alt="Prefect Flow Run Log" src="../img/prefect_flow_run_log.png" /></p>
+<h3 id="restart-the-stack-from-scratch">Restart the stack from scratch</h3>
+<p>If you want to restart the stack with everything clean then you should use the following command which removes the volumes for each service:</p>
+<div class="termy" data-termynal data-ty-macos data-ty-title="bash"><span data-ty>docker compose -f scripts/docker/docker-compose-prefect.yml --profile agent --profile server --profile queue --profile minio --profile cli down -v --remove-orphans<br><br>[+] Running 11/11<br> ✔ Container docker-prefect_agent_catasto-1       Removed                                                                                            0.7s <br> ✔ Container docker-prefect_agent_default-1       Removed                                                                                            0.6s <br> ✔ Container docker-minio-1                       Removed                                                                                            0.2s <br> ✔ Container docker-prefect_work_queue_catasto-1  Removed                                                                                            0.0s <br> ✔ Container docker-prefect-1                     Removed                                                                                            2.2s <br> ✔ Container docker-db-1                          Removed                                                                                            0.2s <br> ✔ Volume docker_db                               Removed                                                                                            0.4s <br> ✔ Volume docker_minio                            Removed                                                                                            0.0s <br> ✔ Volume docker_cli                              Removed                                                                                            0.4s <br> ✔ Volume docker_prefect                          Removed                                                                                            0.4s <br> ✔ Network prefect-network                        Removed                                                                                            0.1s <br></span></div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var tab,labels=set.querySelector(".tabbed-labels");for(tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      &copy; Copyright 2024 <a href="https://github.com/catasto-open">Catasto Open team</a>.
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        <div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/catasto-open" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M186.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1zM480 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2zm-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3zm-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://twitter.com/catastopen" target="_blank" rel="noopener" title="twitter.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M459.37 151.716c.325 4.548.325 9.097.325 13.645 0 138.72-105.583 298.558-298.558 298.558-59.452 0-114.68-17.219-161.137-47.106 8.447.974 16.568 1.299 25.34 1.299 49.055 0 94.213-16.568 130.274-44.832-46.132-.975-84.792-31.188-98.112-72.772 6.498.974 12.995 1.624 19.818 1.624 9.421 0 18.843-1.3 27.614-3.573-48.081-9.747-84.143-51.98-84.143-102.985v-1.299c13.969 7.797 30.214 12.67 47.431 13.319-28.264-18.843-46.781-51.005-46.781-87.391 0-19.492 5.197-37.36 14.294-52.954 51.655 63.675 129.3 105.258 216.365 109.807-1.624-7.797-2.599-15.918-2.599-24.04 0-57.828 46.782-104.934 104.934-104.934 30.213 0 57.502 12.67 76.67 33.137 23.715-4.548 46.456-13.32 66.599-25.34-7.798 24.366-24.366 44.833-46.132 57.827 21.117-2.273 41.584-8.122 60.426-16.243-14.292 20.791-32.161 39.308-52.628 54.253z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://www.linkedin.com/company/catastopen" target="_blank" rel="noopener" title="www.linkedin.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M416 32H31.9C14.3 32 0 46.5 0 64.3v383.4C0 465.5 14.3 480 31.9 480H416c17.6 0 32-14.5 32-32.3V64.3c0-17.8-14.4-32.3-32-32.3zM135.4 416H69V202.2h66.5V416zm-33.2-243c-21.3 0-38.5-17.3-38.5-38.5S80.9 96 102.2 96c21.2 0 38.5 17.3 38.5 38.5 0 21.3-17.2 38.5-38.5 38.5zm282.1 243h-66.4V312c0-24.8-.5-56.7-34.5-56.7-34.6 0-39.9 27-39.9 54.9V416h-66.4V202.2h63.7v29.2h.9c8.9-16.8 30.6-34.5 62.9-34.5 67.2 0 79.7 44.3 79.7 101.9V416z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "navigation.top", "search.suggest", "search.highlight", "content.tabs.link", "content.code.annotation", "content.code.copy"], "search": "../assets/javascripts/workers/search.c011b7c0.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.7389ff0e.min.js"></script>
+      
+        <script src="../termynal.js"></script>
+      
+    
+  </body>
+</html>
