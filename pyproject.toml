@@ -16,6 +16,9 @@ sister = {path = "libs/src/sister"}
 smidt = {path = "libs/src/smidt"}
 prefect-aws = "^0.4.7"
 s3fs = "^2023.12.2"
+mkdocs = "^1.5.3"
+mkdocs-material = "^9.5.4"
+termynal = "^0.11.1"
 
 [tool.poetry.group.dev.dependencies]
 ipython = "^8.20.0"

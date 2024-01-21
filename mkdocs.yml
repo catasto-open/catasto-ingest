@@ -26,6 +26,11 @@ theme:
       primary: teal
       accent: lime
 
+plugins:
+  - termynal:
+      prompt_literal_start:
+        - "$"
+
 extra:
   social:
     - icon: fontawesome/brands/github-alt
