@@ -14,6 +14,7 @@ prefect = "^2.14.15"
 pyfiglet = "^0.8.post1"
 sister = {path = "libs/src/sister"}
 smidt = {path = "libs/src/smidt"}
+change-notifier = {path = "libs/src/change-notifier"}
 prefect-aws = "^0.4.7"
 s3fs = "^2023.12.2"
 mkdocs = "^1.5.3"
