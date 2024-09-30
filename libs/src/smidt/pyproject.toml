@@ -3,6 +3,10 @@ name = "smidt"
 version = "0.1.0"
 description = "Smidt workflow for the automatic ingestion to Sister workflow"
 authors = ["Francesco Bartoli <francesco.bartoli@geobeyond.it>"]
+packages = [
+    { include = "smidt" },
+    { include = "smidt/**/*.py" },
+]
 
 [tool.poetry.dependencies]
 python = "^3.10"
