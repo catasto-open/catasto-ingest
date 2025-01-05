@@ -4,8 +4,8 @@ version = "0.1.0"
 description = "Smidt workflow for the automatic ingestion to Sister workflow"
 authors = ["Francesco Bartoli <francesco.bartoli@geobeyond.it>"]
 packages = [
-    { include = "smidt" },
-    { include = "smidt/**/*.py" },
+    { include = "smidt", from = "."},
+    { include = "smidt/**/*.py", from = "." },
 ]
 
 [tool.poetry.dependencies]

@@ -5,15 +5,17 @@ description = "Catasto workflow for the automatic ingestion from Sister"
 authors = ["Francesco Bartoli <francesco.bartoli@geobeyond.it>"]
 license = "MIT"
 packages = [
-    {include = "flows", from = "."}
+    {include = "flows", from = "."},
+    # {include = "smidt", from = "libs/src/smidt/"},
+    # {include = "smidt/**/*.py", from = "libs/src/smidt/"},
 ]
 
 [tool.poetry.dependencies]
 python = "^3.10"
 prefect = {extras = ["aws"], version = "<3.0"}
 pyfiglet = "^0.8.post1"
-sister = {path = "libs/src/sister"}
-smidt = {path = "libs/src/smidt"}
+sister = {path = "libs/src/sister/", develop = false}
+smidt = {path = "libs/src/smidt/", develop = false}
 s3fs = "^2023.12.2"
 mkdocs = "^1.5.3"
 mkdocs-material = "^9.5.39"
@@ -23,5 +25,5 @@ termynal = "^0.11.1"
 ipython = "^8.20.0"
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
+requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
