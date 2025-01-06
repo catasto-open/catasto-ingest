@@ -32,16 +32,14 @@ except ValueError:
 
 try:
     flows_dir = Path(__file__).parent.parent
-    storage.upload_from_folder(
-        str(flows_dir), flows_dir.name
-    )
+    storage.upload_from_folder(str(flows_dir), flows_dir.name)
 except:
-    pass
+    raise
 
 # create and deploy a prefect deployment
 prefect_flow.from_source(
     source=storage, entrypoint="flows/demo.py:prefect_flow"
-    ).deploy(
+).deploy(
     name="Prefect flow deployment",
     version="1",
     job_variables=dict({"env.PREFECT_LOGGING_LEVEL": "DEBUG"}),
