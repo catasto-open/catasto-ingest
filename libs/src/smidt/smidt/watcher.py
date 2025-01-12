@@ -1,116 +1,278 @@
+import os
+import tempfile
 import time
 from datetime import datetime
+from typing import List, Set, Tuple
 
-from fs import open_fs
+from ftputil import FTPHost
 from loguru import logger
-from watchdog.events import FileCreatedEvent, FileSystemEventHandler
-from watchdog.observers.polling import PollingObserver
+from minio import Minio
+from minio.error import S3Error
 
-from smidt.client import FTPClient
+from smidt.client import FTPClient, FTPConfig, FTPDriver
 from smidt.models import EventFile, EventTypeEnum
 
-from .config import settings
+# Configure logging
+logger.remove()
+logger.add(
+    "ftp_observer_{time}.log",
+    rotation="1 day",
+    retention="30 days",
+    compression="zip",
+    format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}",
+    level="DEBUG",
+)
+logger.add(
+    lambda msg: print(msg),
+    format="{time:HH:mm:ss} | {level: <8} | {message}",
+    level="DEBUG",
+    colorize=True,
+)
 
 
-class FTPEventHandler(FileSystemEventHandler):
-    def __init__(self, ftp_fs):
-        self.ftp_fs = ftp_fs
-        self.last_read = None
-        self.client = None
+class FTPMinioObserver:
+    """
+    Monitors FTP directory for new files and backs them up to MinIO.
+    Uses FTP client for file operations and MinIO for storage.
+    """
 
-    def dispatch(self, event):
-        super().dispatch(event)
-        if event.is_directory:
-            return
-        logger.info(f"FTP Event: {event.event_type} - {event.src_path.filename}")
-        self.client.writetext(
-            f"{settings.basepath}/{settings.event_filename}",
-            str(datetime.now().timestamp()).split(".")[0],
+    def __init__(
+        self,
+        ftp_config: FTPConfig,
+        remote_dir: str,
+        lock_filename: str,
+        minio_endpoint: str,
+        minio_access_key: str,
+        minio_secret_key: str,
+        minio_bucket: str,
+        minio_secure: bool = True,
+    ):
+        """Initialize the observer with FTP and MinIO configurations."""
+        self.config = ftp_config
+        self.remote_dir = remote_dir
+        self.lock_filename = lock_filename
+        self._known_files: Set[str] = set()
+
+        # Initialize MinIO client
+        self.minio_client = Minio(
+            endpoint=minio_endpoint,
+            access_key=minio_access_key,
+            secret_key=minio_secret_key,
+            secure=minio_secure,
         )
-        self.client.driver.close()
-        return event
+        self.minio_bucket = minio_bucket
 
+        # Ensure MinIO bucket exists
+        self._ensure_minio_bucket()
 
-class FTPPollingObserver(PollingObserver):
-    def __init__(self, ftp_url, event_handler, interval=20):
-        super().__init__(interval)
-        self.ftp_fs = open_fs(ftp_url)
-        self.event_handler = event_handler
-        self.is_running = False
+    def _ensure_minio_bucket(self):
+        """Create MinIO bucket if it doesn't exist and verify permissions."""
+        try:
+            if not self.minio_client.bucket_exists(self.minio_bucket):
+                self.minio_client.make_bucket(self.minio_bucket)
+                logger.info(f"Created MinIO bucket: {self.minio_bucket}")
 
-    def _generate_events(self, event):
-        # Check for new/modified files on the FTP server and generate events
-        current_files = [
-            EventFile(
-                event_type=None,
-                date_time=datetime.strptime(
-                    file_info.get("ftp", "ls")[0:17], "%m-%d-%y  %I:%M%p"
-                ),
-                filename=file_info.name,
+            # Test permissions
+            self.minio_client.list_objects(
+                self.minio_bucket, prefix="", recursive=False
             )
-            for file_info in self.ftp_fs.scandir(".")
-        ]
-        # last_files = self.event_handler.file_paths or []
-        # breakpoint()
+            logger.debug(f"Verified access to bucket: {self.minio_bucket}")
 
-        # new_files = current_files - last_files
-        last_timestamp = self.event_handler.client.readtext(
-            f"{settings.basepath}/{settings.event_filename}"
-        )
-        self.event_handler.last_read = datetime.fromtimestamp(int(last_timestamp))
-        self.event_handler.client.driver.close()
-        new_file_events = [
-            current_file
-            for current_file in current_files
-            if current_file.date_time >= self.event_handler.last_read
-        ]
-        # TODO: Handle modified files from current_files
-        # modified_files = current_files.intersection(last_files)
+        except S3Error as e:
+            if "AccessDenied" in str(e):
+                raise S3Error(
+                    f"Insufficient permissions for bucket {self.minio_bucket}"
+                )
+            raise
 
-        for new_file_event in new_file_events:
-            if new_file_event.filename.endswith(".enc"):
-                new_file_event.event_type = EventTypeEnum.created
-                self.event_handler.dispatch(FileCreatedEvent(new_file_event))
+    def read_lock_file(self) -> datetime | None:
+        """Read timestamp from lock file using FTP client."""
+        driver = None
+        try:
+            driver = FTPDriver(self.config)
+            client = FTPClient(driver)
 
-        # for modified_file in modified_files:
-        # self.event_handler.dispatch(FileModifiedEvent(modified_file))
+            lock_path = f"{self.remote_dir}/{self.lock_filename}".replace("//", "/")
+            content = client.readtext(lock_path)
+            timestamp = float(content)  # Direttamente il valore numerico
 
-        # self.event_handler.file_paths = current_files
+            logger.debug(
+                f"Read lock timestamp: {str(datetime.fromtimestamp(timestamp))}"
+            )
+            return timestamp
 
-    def start(self):
-        if not self.is_running:
-            super().start()
-            self.is_running = True
-            self.unlock()
-            self._run()
+        except Exception as e:
+            logger.warning(f"Failed to read lock file: {e}")
+            return None
+        finally:
+            if driver:
+                driver.close()
 
-    def stop(self):
-        if self.is_running:
-            super().stop()
-            self.is_running = False
-            self.lock()
+    def update_lock_file(self, timestamp: float):
+        """Update timestamp in lock file using FTP client."""
+        driver = None
+        try:
+            driver = FTPDriver(self.config)
+            client = FTPClient(driver)
 
-    def lock(self):
-        pass
+            lock_path = f"{self.remote_dir}/{self.lock_filename}".replace("//", "/")
+            content = str(timestamp)  # Solo il valore numerico
+            client.writetext(lock_path, content)
 
-    def unlock(self):
-        pass
+            logger.debug(f"Updated lock timestamp: {datetime.fromtimestamp(timestamp)}")
+        finally:
+            if driver:
+                driver.close()
 
-    def _run(self):
-        while self.should_keep_running():
-            # Generate events
-            self._generate_events(None)
-            time.sleep(self.timeout)
+    def list_files(self) -> List[Tuple[str, datetime]]:
+        """List files in monitored directory with their timestamps."""
+        driver = None
+        try:
+            driver = FTPDriver(self.config)
+            connection = FTPHost(
+                self.config.HOST,
+                self.config.USER,
+                self.config.PASSWORD,
+            )
 
+            files = []
+            for name in connection.listdir(self.remote_dir):
+                if connection.path.isfile(f"{self.remote_dir}/{name}"):
+                    stat = connection.stat(f"{self.remote_dir}/{name}")
+                    mtime = datetime.fromtimestamp(stat.st_mtime)
+                    files.append((name, mtime))
 
-# Example usage
-class MyFTPEventHandler(FTPEventHandler):
-    def __init__(self, ftp_fs, ftp_client: FTPClient):
-        super().__init__(ftp_fs)
-        # self.file_paths = []
-        self.client = ftp_client
-        timestamp = self.client.readtext(
-            filepath=f"{settings.basepath}/{settings.event_filename}"
-        )
-        self.last_read = datetime.fromtimestamp(int(timestamp))
-        self.client.driver.close()
+            return files
+
+        finally:
+            if driver:
+                driver.close()
+
+    def detect_events(self) -> List[EventFile]:
+        """Detect file creation and modification events."""
+        current_files = set()
+        events = []
+
+        for name, mtime in self.list_files():
+            current_files.add(name)
+
+            if name not in self._known_files:
+                events.append(
+                    EventFile(
+                        event_type=EventTypeEnum.created, date_time=mtime, filename=name
+                    )
+                )
+
+        self._known_files = current_files
+        return events
+
+    def backup_to_minio(self, event: EventFile) -> bool:
+        """Back up a file to MinIO using FTP download."""
+        temp_file = None
+        connection = None
+        try:
+            # Create temporary file
+            temp_file = tempfile.NamedTemporaryFile(mode="wb", delete=False)
+            temp_file.close()
+
+            # Download file using FTP
+            file_path = f"{self.remote_dir}/{event.filename}".replace("//", "/")
+            connection = FTPHost(
+                self.config.HOST,
+                self.config.USER,
+                self.config.PASSWORD,
+            )
+            connection.download(file_path, temp_file.name)
+
+            # Get file size
+            file_size = os.path.getsize(temp_file.name)
+
+            # Upload to MinIO
+            minio_path = f"{datetime.now().strftime('%Y/%m/%d')}/{event.event_type.value}/{event.filename}"
+            with open(temp_file.name, "rb") as f:
+                self.minio_client.put_object(
+                    bucket_name=self.minio_bucket,
+                    object_name=minio_path,
+                    data=f,
+                    length=file_size,
+                )
+
+            logger.info(
+                f"Backed up {event.filename} ({file_size} bytes) to MinIO: {minio_path}"
+            )
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to backup {event.filename}: {e}")
+            return False
+
+        finally:
+            if temp_file:
+                try:
+                    os.unlink(temp_file.name)
+                except OSError:
+                    pass
+            if connection:
+                connection.close()
+
+    def process_events(self) -> Tuple[List[EventFile], List[EventFile]]:
+        """Process detected events and back up new files."""
+        current_time = time.time()
+        last_check_time = self.read_lock_file()
+
+        if last_check_time is None:
+            last_check_time = current_time
+
+        # Detect and filter events
+        events = self.detect_events()
+        filtered_events = []
+        processed_events = []
+
+        for event in events:
+            if event.filename == self.lock_filename:
+                continue
+
+            if event.event_type != EventTypeEnum.created:
+                continue
+
+            if event.date_time.timestamp() > last_check_time:
+                filtered_events.append(event)
+
+        # Process filtered events
+        if filtered_events:
+            logger.info(f"Processing {len(filtered_events)} new files")
+
+            for event in filtered_events:
+                if self.backup_to_minio(event):
+                    processed_events.append(event)
+
+            if processed_events:
+                self.update_lock_file(current_time)
+
+        return filtered_events, processed_events
+
+    def start_monitoring(self, interval: int = 60):
+        """Start continuous monitoring of the FTP directory."""
+        logger.info(f"Starting monitoring of directory: {self.remote_dir}")
+        logger.info(f"Backup configured to MinIO bucket: {self.minio_bucket}")
+
+        try:
+            while True:
+                events, processed_events = self.process_events()
+
+                if events:
+                    for event in events:
+                        logger.info(str(event))
+
+                    if len(processed_events) < len(events):
+                        failed = [e for e in events if e not in processed_events]
+                        for event in failed:
+                            logger.warning(f"Failed to process: {str(event)}")
+
+                logger.debug(f"Waiting {interval} seconds")
+                time.sleep(interval)
+
+        except KeyboardInterrupt:
+            logger.warning("Monitoring interrupted by user")
+        except Exception as e:
+            logger.exception(f"Error during monitoring: {e}")

@@ -3,31 +3,35 @@ from typing import Protocol
 from ftputil import FTPHost
 from ftputil.file import FTPFile
 
-from .config import settings
-
 
 class Driver(Protocol):
-    def open(self, filepath: str) -> None:
-        pass
+    """Protocol defining expected interface for FTP drivers."""
 
-    def close(self) -> None:
-        pass
+    def open(self, filepath: str, mode: str = "r") -> FTPFile: ...
 
-
-class FTPConfig:
-    HOST = settings.ftp_host
-    USER = settings.ftp_user
-    PASSWORD = settings.ftp_password
+    def close(self) -> None: ...
 
 
 class Client(Protocol):
+    """Protocol defining expected interface for FTP clients."""
+
     driver: Driver
 
-    def readtext(self) -> str:
-        pass
+    def readtext(self, filepath: str) -> str: ...
+
+
+class FTPConfig:
+    """FTP configuration class with required attributes."""
+
+    def __init__(self, host: str, user: str, password: str):
+        self.HOST = host
+        self.USER = user
+        self.PASSWORD = password
 
 
 class FTPDriver(Driver):
+    """FTP driver implementation."""
+
     def __init__(self, config: FTPConfig, connection: FTPHost = None):
         self.connection = connection
         self.config = config
@@ -36,15 +40,18 @@ class FTPDriver(Driver):
         self.connection = FTPHost(
             self.config.HOST,
             self.config.USER,
-            self.config.PASSWORD.get_secret_value(),
+            self.config.PASSWORD,
         )
         return self.connection.open(filepath, mode)
 
     def close(self) -> None:
-        self.connection.close()
+        if self.connection:
+            self.connection.close()
 
 
 class FTPClient(Client):
+    """FTP client implementation."""
+
     def __init__(self, driver: Driver):
         self.driver = driver
 

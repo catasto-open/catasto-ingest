@@ -2,39 +2,38 @@
 
 ## How to use the library
 
-```python
-❯ ipython
-Python 3.10.7 (main, Oct 18 2022, 18:24:49) [Clang 14.0.0 (clang-1400.0.29.102)]
-Type 'copyright', 'credits' or 'license' for more information
-IPython 8.20.0 -- An enhanced Interactive Python. Type '?' for help.
+Configure your settings in a file `.env_smidt` using a copy of the sample env file `sample.env_smidt `.
 
-In [1]: from smidt.watcher import MyFTPEventHandler, FTPPollingObserver
+Run the following example script:
 
-In [2]: ftp_url = "ftp://user:password@127.0.0.1/smidt"
+```shell
+❯ poetry run python smidt/app.py
+````
 
-In [3]: from fs import open_fs
+In the standard output you will see the following messages about the copy of the latest files from the FTP server to MinIO:
 
-In [4]: from smidt.client import FTPConfig, FTPDriver, FTPClient
+```shell
+19:20:36 | DEBUG    | Verified access to bucket: ftp-backup
 
-In [5]: ftp_config = FTPConfig()
+19:20:43 | INFO     | Starting monitoring of directory: /entrate
 
-In [6]: driver = FTPDriver(config=ftp_config)
+19:20:43 | INFO     | Backup configured to MinIO bucket: ftp-backup
 
-In [7]: ftp_client = FTPClient(driver=driver)
+19:20:48 | DEBUG    | Read lock timestamp: 2025-01-06 19:36:18.868941
 
-In [8]: event_handler = MyFTPEventHandler(open_fs(ftp_url), ftp_client)
+19:20:54 | INFO     | Processing 2 new files
 
-In [9]: observer = FTPPollingObserver(ftp_url, event_handler)
+19:21:00 | INFO     | Backed up ATASR06.S0044860.D2025007.T021431.p7m.enc (3783546 bytes) to MinIO: 2025/01/12/created/ATASR06.S0044860.D2025007.T021431.p7m.enc
 
-In [10]: try:
-            observer.start()
-            while True:
-               time.sleep(1)
-         except KeyboardInterrupt:
-            observer.stop()
+19:21:01 | INFO     | Backed up ATASR06.S0044860.D2025007.T021433.p7m.enc (180806 bytes) to MinIO: 2025/01/12/created/ATASR06.S0044860.D2025007.T021433.p7m.enc
 
-         observer.join()
+19:21:02 | DEBUG    | Updated lock timestamp: 2025-01-12 19:20:43.233970
+
+19:21:02 | INFO     | created: ATASR06.S0044860.D2025007.T021431.p7m.enc at 2025-01-07 06:20:00
+
+19:21:02 | INFO     | created: ATASR06.S0044860.D2025007.T021433.p7m.enc at 2025-01-07 06:20:00
+
+19:21:02 | DEBUG    | Waiting 600 seconds
 ```
 
-This prints all the file created since the last timestamp written in the `LASTEVENT.txt`
-file that is placed in the directory configured for observing the events.
+This prints all the files processed and copied since the last timestamp written in the lock file that is placed in the directory configured for observing the events.
