@@ -10,7 +10,7 @@ from minio import Minio
 from minio.error import S3Error
 
 from smidt.client import FTPClient, FTPConfig, FTPDriver
-from smidt.models import EventFile, EventTypeEnum
+from smidt.models import EventFile, EventTypeEnum, TransferredFile
 
 # Configure logging
 logger.remove()
@@ -215,10 +215,21 @@ class FTPMinioObserver:
             if connection:
                 connection.close()
 
-    def process_events(self) -> Tuple[List[EventFile], List[EventFile]]:
-        """Process detected events and back up new files."""
+    def process_events(
+        self,
+    ) -> Tuple[List[EventFile], List[EventFile], List[TransferredFile]]:
+        """
+        Process detected events and back up new files.
+
+        Returns:
+            Tuple containing:
+            - List of detected events
+            - List of successfully processed events
+            - List of MinIO paths where files were stored
+        """
         current_time = time.time()
         last_check_time = self.read_lock_file()
+        transferred_files = []
 
         if last_check_time is None:
             last_check_time = current_time
@@ -243,22 +254,54 @@ class FTPMinioObserver:
             logger.info(f"Processing {len(filtered_events)} new files")
 
             for event in filtered_events:
+                minio_path = f"{datetime.now().strftime('%Y/%m/%d')}/{event.event_type.value}/{event.filename}"
                 if self.backup_to_minio(event):
                     processed_events.append(event)
+
+                    # Get file size if available
+                    try:
+                        file_path = f"{self.remote_dir}/{event.filename}".replace(
+                            "//", "/"
+                        )
+                        connection = FTPHost(
+                            self.config.HOST, self.config.USER, self.config.PASSWORD
+                        )
+                        size = connection.path.getsize(file_path)
+                        connection.close()
+                    except Exception:
+                        size = None
+
+                    transferred_files.append(
+                        TransferredFile(
+                            filename=event.filename,
+                            timestamp=event.date_time,
+                            minio_path=minio_path,
+                            bucket=self.minio_bucket,
+                            size=size,
+                            event_type=event.event_type,
+                        )
+                    )
 
             if processed_events:
                 self.update_lock_file(current_time)
 
-        return filtered_events, processed_events
+        return filtered_events, processed_events, transferred_files
 
-    def start_monitoring(self, interval: int = 60):
-        """Start continuous monitoring of the FTP directory."""
+    def start_monitoring(self, interval: int = 60, single_run: bool = False):
+        """
+        Start monitoring of the FTP directory.
+
+        Args:
+            interval: Number of seconds between checks
+            single_run: If True, executes only one check and returns
+        """
         logger.info(f"Starting monitoring of directory: {self.remote_dir}")
         logger.info(f"Backup configured to MinIO bucket: {self.minio_bucket}")
+        logger.info(f"Mode: {'single run' if single_run else 'continuous'}")
 
         try:
             while True:
-                events, processed_events = self.process_events()
+                events, processed_events, transferred_files = self.process_events()
 
                 if events:
                     for event in events:
@@ -268,6 +311,26 @@ class FTPMinioObserver:
                         failed = [e for e in events if e not in processed_events]
                         for event in failed:
                             logger.warning(f"Failed to process: {str(event)}")
+
+                    if transferred_files:
+                        logger.info("Files transferred in this interval:")
+                        for transfer in transferred_files:
+                            logger.info(f"File: {transfer.filename}")
+                            logger.info(
+                                f"  Timestamp: {transfer.timestamp.isoformat()}"
+                            )
+                            logger.info(
+                                f"  MinIO Path: {transfer.bucket}/{transfer.minio_path}"
+                            )
+
+                # Return the transferred files information
+                if transferred_files:
+                    yield transferred_files
+
+                # If single_run is True, exit after first check
+                if single_run:
+                    logger.info("Single run completed")
+                    break
 
                 logger.debug(f"Waiting {interval} seconds")
                 time.sleep(interval)

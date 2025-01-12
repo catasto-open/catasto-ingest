@@ -22,3 +22,12 @@ class EventFile(BaseModel):
 
     def __str__(self) -> str:
         return f"{self.event_type.value}: {self.filename} at {self.date_time.strftime('%Y-%m-%d %H:%M:%S')}"
+
+
+class TransferredFile(BaseModel):
+    filename: str
+    timestamp: datetime
+    minio_path: str
+    bucket: str
+    size: int | None = None
+    event_type: EventTypeEnum

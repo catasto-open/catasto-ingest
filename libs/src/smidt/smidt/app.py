@@ -22,4 +22,9 @@ if __name__ == "__main__":
         minio_secure=False,
     )
     # Start monitoring
-    observer.start_monitoring(interval=600)  # Check every 600 seconds
+    for transferred_files in observer.start_monitoring(interval=600):
+        for transfer in transferred_files:
+            print(f"File: {transfer.filename}")
+            print(f"Size: {transfer.size or 'unknown'} bytes")
+            print(f"Path: {transfer.bucket}/{transfer.minio_path}")
+            print(f"Timestamp: {transfer.timestamp.isoformat()}")
