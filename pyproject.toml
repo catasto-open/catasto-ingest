@@ -12,7 +12,7 @@ packages = [
 
 [tool.poetry.dependencies]
 python = "^3.10"
-prefect = {extras = ["aws"], version = "<3.0"}
+prefect = {extras = ["aws","docker"], version = "<3.0"}
 pyfiglet = "^0.8.post1"
 sister = {path = "libs/src/sister/", develop = false}
 smidt = {path = "libs/src/smidt/", develop = false}
