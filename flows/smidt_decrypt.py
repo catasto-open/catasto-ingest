@@ -146,8 +146,9 @@ def decrypt_file(enc_file: Path, key_path: Path, key_password: str) -> Path:
 
 
 @task(name="Verify and extract", retries=3)
-def verify_and_extract(zip_path: Path, ca_cert_path: Path) -> Path:
+def verify_and_extract(zip_path: Path, ca_cert_path: Path) -> Tuple[Path, str]:
     """Verify S/MIME signature and extract the content."""
+    logger = get_run_logger()
     temp_dir = zip_path.parent
     output_zip = temp_dir / zip_path.name.replace(".p7m", "")
 
@@ -189,15 +190,14 @@ def verify_and_extract(zip_path: Path, ca_cert_path: Path) -> Path:
     verify_container.command = verify_command
     verify_container.run()
 
+    # Extract first ZIP and get the name of the inner ZIP file
     unzip_command = f"""
         /bin/ash -c 'apk add --no-cache unzip && \
         cd /export && \
         unzip {output_zip.name} -d first_extract && \
-        cd first_extract && \
-        unzip *.zip -d ../final_extract'
+        ls /export/first_extract/*.zip > /export/inner_zip_name.txt'
     """
 
-    # Finally extract the ZIPs
     unzip_container = get_docker_container(
         image_name="alpine:latest",
         volumes=[f"{temp_dir}:/export:rw"],
@@ -206,15 +206,26 @@ def verify_and_extract(zip_path: Path, ca_cert_path: Path) -> Path:
     unzip_container.command = unzip_command
     unzip_container.run()
 
+    # Read the inner ZIP filename
+    inner_zip_path = temp_dir / "inner_zip_name.txt"
+    inner_zip_name = ""
+    if inner_zip_path.exists():
+        inner_zip_name = inner_zip_path.read_text().strip()
+        inner_zip_name = Path(inner_zip_name).name
+        logger.info(f"Inner ZIP file name: {inner_zip_name}")
+
+    # Create a directory with the inner ZIP name (without .zip extension)
+    folder_name = Path(inner_zip_name).stem if inner_zip_name else "extracted"
+    final_extract_dir = temp_dir / folder_name
+    final_extract_dir.mkdir(exist_ok=True)
+
+    # Extract the second ZIP to the named directory
     final_extract_command = f"""
-        /bin/ash -c 'apk add --no-cache p7zip unzip && \
-        cd /export && \
-        unzip {output_zip.name} -d first_extract && \
-        cd first_extract && \
-        unzip *.zip -d ../final_extract'
+        /bin/ash -c 'apk add --no-cache unzip && \
+        cd /export/first_extract && \
+        unzip *.zip -d /export/{folder_name}'
     """
 
-    # Configure Docker container for unzipping
     final_extract_container = get_docker_container(
         image_name="alpine:latest",
         volumes=[f"{temp_dir}:/export:rw"],
@@ -223,7 +234,7 @@ def verify_and_extract(zip_path: Path, ca_cert_path: Path) -> Path:
     final_extract_container.command = final_extract_command
     final_extract_container.run()
 
-    return final_extract_dir
+    return final_extract_dir, folder_name
 
 
 @task(name="Upload to MinIO", log_prints=True, tags="SMIDT")
@@ -284,26 +295,35 @@ def process_smidt_file_flow(
         ca_cert_key,
     )
     try:
+        original_path = Path(enc_file_key)
+        logger.info(f"Original path {original_path}")
+        prefix_path = ""
+        if len(original_path.parts) > 2:
+            prefix_path = f"{original_path.parts[0]}/{original_path.parts[1]}/"
+
         key_path = extract_private_key(p12_path, p12_password)
         logger.info(f"Extract private key {key_path}")
 
         decrypted_path = decrypt_file(enc_path, key_path, key_password)
         logger.info(f"Decrypted path file {decrypted_path}")
 
-        final_dir = verify_and_extract(decrypted_path, ca_cert_path)
-        logger.info(f"Final directory {final_dir}")
+        final_dir, folder_name = verify_and_extract(decrypted_path, ca_cert_path)
+        logger.info(f"Final directory {final_dir}, folder name {folder_name}")
 
-        # Upload all extracted files
+        # Upload all extracted files with the correct prefix
         for file_path in final_dir.rglob("*"):
             if file_path.is_file():
                 relative_path = file_path.relative_to(final_dir)
+                dest_path = f"{prefix_path}{folder_name}/{relative_path}"
+                logger.info(f"Uploading to the destination path {dest_path}")
+
                 upload_to_minio(
                     minio_server,
                     minio_access_key,
                     minio_secret_key,
                     file_path,
                     output_bucket,
-                    str(relative_path),
+                    dest_path,
                 )
 
     finally:

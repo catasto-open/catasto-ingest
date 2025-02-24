@@ -1,9 +1,6 @@
-from pathlib import Path
-
 from prefect import flow, get_run_logger, task
 from prefect.blocks.system import JSON
 from smidt.client import FTPConfig
-from smidt.models import TransferredFile
 from smidt.watcher import FTPMinioObserver
 
 from flows.smidt_decrypt import process_smidt_file_flow
@@ -34,19 +31,6 @@ def observe_and_copy():
     # transfer new files
     for transferred_files in observer.start_monitoring(single_run=True):
         return transferred_files
-
-
-@task(name="copy monthly files", log_prints=True, tags="SMIDT")
-def get_file_from_bucket(filename: str, bucket: str):
-    tmp_path = Path("/tmp")
-
-
-@flow(name="smidt decode and extract", log_prints=True)
-def smidt_extract_flow(file: TransferredFile):
-    logger = get_run_logger()
-    logger.info("Running smidt extract file flow")
-    downloaded = get_file_from_bucket(filename=file.filename, bucket=file.bucket)
-    return None
 
 
 @flow(name="smidt flow", log_prints=True)
