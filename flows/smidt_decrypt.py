@@ -307,10 +307,22 @@ def process_smidt_file_flow(
                 )
 
     finally:
-        # Clean temporary directories
-        for item in temp_dir.rglob("*"):
-            if item.is_file():
-                item.unlink()
-            elif item.is_dir():
-                item.rmdir()
-        temp_dir.rmdir()
+        # Clean temporary directories usando pathlib
+        try:
+            # Remove files
+            for file_path in temp_dir.glob("**/*"):
+                if file_path.is_file():
+                    file_path.unlink(missing_ok=True)
+
+            # Remove directories in reverse order
+            for dir_path in sorted(
+                temp_dir.glob("**/*"), key=lambda p: len(p.parts), reverse=True
+            ):
+                if dir_path.is_dir():
+                    dir_path.rmdir()
+
+            # Remove root directory
+            if temp_dir.exists():
+                temp_dir.rmdir()
+        except Exception as e:
+            logger.error(f"Error while cleaning: {e}")
