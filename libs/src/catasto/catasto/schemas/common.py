@@ -1,6 +1,6 @@
-from typing import Union
-from pydantic import BaseModel, AnyUrl, validator
-from .enumeration import CensusTypeEnum, CartoTypeEnum
+from pydantic import AnyHttpUrl, BaseModel, field_validator
+
+from .enumeration import CartoTypeEnum, CensusTypeEnum
 
 
 class CommonBase(BaseModel):
@@ -40,7 +40,7 @@ class ReaderFile(BaseModel):
     filetype: str
     content: str
 
-    @validator('filetype')
+    @field_validator("filetype")
     def validate_filetype(cls, val):
         if val.replace(".", "") not in [
             CensusTypeEnum.FAB.name,
@@ -48,13 +48,17 @@ class ReaderFile(BaseModel):
             CensusTypeEnum.TIT.name,
             CensusTypeEnum.TER.name,
             CartoTypeEnum.CXF.name,
-            CartoTypeEnum.CTF.name
+            CartoTypeEnum.CTF.name,
         ]:
-            raise ValueError(
-                f"The extension {val} is not valid for Catasto"
-            )
+            raise ValueError(f"The extension {val} is not valid for Catasto")
         return val
 
 
 class UrlModel(BaseModel):
-    url: AnyUrl
+    url: AnyHttpUrl
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, v: AnyHttpUrl) -> AnyHttpUrl:
+        # I validatori in Pydantic v2 restituiscono il valore validato invece di True/False
+        return v

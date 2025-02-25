@@ -1,9 +1,8 @@
-import pytest
 import pathlib
-from catasto.reader import LocalFileReaderService
-from catasto.parser import FileParserService
-from catasto.schemas.common import ReaderFile
 
+import pytest
+from catasto.parser import FileParserService
+from catasto.reader import LocalFileReaderService
 
 directory = pathlib.Path("tests/data/")
 

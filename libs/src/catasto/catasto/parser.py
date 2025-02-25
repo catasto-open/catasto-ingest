@@ -1,35 +1,19 @@
-from typing import (
-    Protocol, Union, Tuple, Iterator,  Dict
-)
+from typing import Dict, Iterator, Protocol, Tuple, Union
+
+from .reader import LocalFileReaderService, MinioFileReaderService
+from .schemas.carto import CartoObject, HeaderModel, LandSheet
 from .schemas.census import Census
-from .schemas.carto import (
-    LandSheet, HeaderModel, CartoObjectItem,
-    CartoObject
-)
-from .reader import (
-    LocalFileReaderService,
-    MinioFileReaderService
-)
 
 
 class FileParser(Protocol):
-
-    reader: Union[
-        LocalFileReaderService, MinioFileReaderService
-    ]
+    reader: Union[LocalFileReaderService, MinioFileReaderService]
 
     async def parse(self):
         pass
 
 
 class FileParserService(FileParser):
-
-    def __init__(
-        self,
-        reader: Union[
-            LocalFileReaderService, MinioFileReaderService
-        ]
-    ):
+    def __init__(self, reader: Union[LocalFileReaderService, MinioFileReaderService]):
         self._reader = reader
 
     async def parse(self) -> Union[Census, LandSheet]:
@@ -59,11 +43,7 @@ class FileParserService(FileParser):
                 result = Census(codice_comune="H501")
             return result
 
-    def _parse_name(
-        self,
-        land_sheet: LandSheet,
-        name: str
-    ) -> LandSheet:
+    def _parse_name(self, land_sheet: LandSheet, name: str) -> LandSheet:
         land_sheet.codice_foglio = name
         land_sheet.codice_comune = name[:4]
         land_sheet.codice_sezione_censuaria = name[4]
@@ -74,9 +54,7 @@ class FileParserService(FileParser):
         return land_sheet
 
     def _parse_header(
-        self,
-        land_sheet: LandSheet,
-        _iter: Iterator
+        self, land_sheet: LandSheet, _iter: Iterator
     ) -> Tuple[LandSheet, Iterator]:
         header = HeaderModel()
         header.mappa = next(_iter).strip()
@@ -86,11 +64,8 @@ class FileParserService(FileParser):
         return (land_sheet, _iter)
 
     def _parse_objects(
-        self,
-        land_sheet: LandSheet,
-        _iter: Iterator
+        self, land_sheet: LandSheet, _iter: Iterator
     ) -> Tuple[LandSheet, Iterator]:
-
         def _get_tipo(_iter: Iterator, obj: Dict) -> Dict:
             obj["TIPO"] = []
             if len(obj["CODICE_IDENTIFICATIVO"]) == 11:
@@ -109,10 +84,7 @@ class FileParserService(FileParser):
         def _get_vertici(_iter: Iterator, obj: Dict) -> Dict:
             obj["VERTICI"] = []
             for item in range(int(obj["NUMEROVERTICI"])):
-                obj["VERTICI"].append((
-                    next(_iter).strip(),
-                    next(_iter).strip()
-                ))
+                obj["VERTICI"].append((next(_iter).strip(), next(_iter).strip()))
             return obj
 
         def _get_tabisole(_iter: Iterator, obj: Dict) -> Dict:
@@ -121,63 +93,50 @@ class FileParserService(FileParser):
                 obj["TABISOLE"].append(next(_iter).strip())
             return obj
 
-        def _build_carto_objects(
-            tipo=None,
-            vertici=None,
-            tabisole=None
-        ) -> Dict:
+        def _build_carto_objects(tipo=None, vertici=None, tabisole=None) -> Dict:
             carto_objects = {
                 "BORDO": (
                     [
-                        "CODICE_IDENTIFICATIVO", "DIMENSIONE", "ANGOLO",
-                        "POSIZIONEX", "POSIZIONEY", "PUNTOINTERNOX",
-                        "PUNTOINTERNOY", "NUMEROISOLE", "NUMEROVERTICI"
+                        "CODICE_IDENTIFICATIVO",
+                        "DIMENSIONE",
+                        "ANGOLO",
+                        "POSIZIONEX",
+                        "POSIZIONEY",
+                        "PUNTOINTERNOX",
+                        "PUNTOINTERNOY",
+                        "NUMEROISOLE",
+                        "NUMEROVERTICI",
                     ],
-                    [
-                        "tabisole", "vertici", "tipo"
-                    ]
+                    ["tabisole", "vertici", "tipo"],
                 ),
                 "TESTO": (
-                    [
-                        "TESTO", "DIMENSIONE", "ANGOLO",
-                        "POSIZIONEX", "POSIZIONEY"
-                    ],
-                    []
+                    ["TESTO", "DIMENSIONE", "ANGOLO", "POSIZIONEX", "POSIZIONEY"],
+                    [],
                 ),
                 "SIMBOLO": (
-                    [
-                        "CODICE SIMBOLO", "ANGOLO", "POSIZIONEX",
-                        "POSIZIONEY"
-                    ],
-                    []
+                    ["CODICE SIMBOLO", "ANGOLO", "POSIZIONEX", "POSIZIONEY"],
+                    [],
                 ),
                 "FIDUCIALE": (
                     [
-                        "NUMERO_IDENTIFICATIVO", "CODICE SIMBOLO",
-                        "POSIZIONEX", "POSIZIONEY", "PUNTORAPPRESENTAZIONEX",
-                        "PUNTORAPPRESENTAZIONEY"
+                        "NUMERO_IDENTIFICATIVO",
+                        "CODICE SIMBOLO",
+                        "POSIZIONEX",
+                        "POSIZIONEY",
+                        "PUNTORAPPRESENTAZIONEX",
+                        "PUNTORAPPRESENTAZIONEY",
                     ],
-                    []
-                ),
-                "LINEA": (
-                    [
-                        "CODICE TIPO DI TRATTO", "NUMEROVERTICI"
-                    ],
-                    [
-                        "vertici"
-                    ]
-                ),
-                "EOF": (
                     [],
-                    []
                 ),
+                "LINEA": (["CODICE TIPO DI TRATTO", "NUMEROVERTICI"], ["vertici"]),
+                "EOF": ([], []),
             }
             return carto_objects
 
         land_sheet.oggetti = CartoObject()
         for raw_line in _iter:
-            line = raw_line.strip().rstrip('\\')
-            if line not in land_sheet.oggetti.dict(by_alias=True):
+            line = raw_line.strip().rstrip("\\")
+            if line not in land_sheet.oggetti.model_dump(by_alias=True):
                 raise ValueError(f"Unkwown object {line}")
             obj = {}
             record_names, functions = _build_carto_objects()[line]
@@ -187,15 +146,9 @@ class FileParserService(FileParser):
                 if function == "tipo":
                     obj = _get_tipo(_iter=_iter, obj=obj)
                 elif function == "vertici":
-                    obj = _get_vertici(
-                        _iter=_iter,
-                        obj=obj
-                    )
+                    obj = _get_vertici(_iter=_iter, obj=obj)
                 elif function == "tabisole":
-                    obj = _get_tabisole(
-                        _iter=_iter,
-                        obj=obj
-                    )
+                    obj = _get_tabisole(_iter=_iter, obj=obj)
             if line == "BORDO":
                 land_sheet.oggetti.bordo.append(obj)
             elif line == "TESTO":
