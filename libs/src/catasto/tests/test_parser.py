@@ -4,9 +4,9 @@ from catasto.schemas.carto import HeaderModel, LandSheet
 
 @pytest.mark.asyncio
 class TestFileParserService:
-    async def test_parse_name(self, cxf_parser):
+    async def test_parse_carto_filename(self, cxf_parser):
         empty_land_sheet = LandSheet()
-        parser = cxf_parser._parse_name(empty_land_sheet, "H501D076700")
+        parser = cxf_parser._parse_carto_filename(empty_land_sheet, "H501D076700")
         assert parser.codice_foglio == "H501D076700"
         assert parser.codice_comune == "H501"
         assert parser.codice_sezione_censuaria == "D"
@@ -15,7 +15,7 @@ class TestFileParserService:
         assert parser.codice_allegato == "0"
         assert parser.codice_sviluppo == "0"
 
-    async def test_parse_header(self, cxf_parser, cxf_content_generator):
+    async def test_parse_carto_fileheader(self, cxf_parser, cxf_content_generator):
         parsed_name_land_sheet = LandSheet(
             codice_foglio="H501D076700",
             codice_comune="H501",
@@ -25,7 +25,9 @@ class TestFileParserService:
             codice_allegato="0",
             codice_sviluppo="0",
         )
-        parser = cxf_parser._parse_header(parsed_name_land_sheet, cxf_content_generator)
+        parser = cxf_parser._parse_carto_fileheader(
+            parsed_name_land_sheet, cxf_content_generator
+        )
         assert parser[0].header.mappa == "MAPPA"
         assert parser[0].header.nome_mappa == "H501D076700"
         assert parser[0].header.scala_originaria == "4000.000"

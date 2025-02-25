@@ -27,12 +27,12 @@ class FileParserService(FileParser):
             if filetype in [".CXF", ".CTF"]:
                 try:
                     # parse filename
-                    carto = self._parse_name(carto, name)
+                    carto = self._parse_carto_filename(carto, name)
                     # parse content
                     gen_lines = iter(content.splitlines())
                     carto.header = HeaderModel()
-                    carto, gen_lines = self._parse_header(carto, gen_lines)
-                    carto = self._parse_objects(carto, gen_lines)
+                    carto, gen_lines = self._parse_carto_fileheader(carto, gen_lines)
+                    carto = self._parse_carto_objects(carto, gen_lines)
                     result = carto
                     # breakpoint()
                 except Exception as e:
@@ -43,7 +43,7 @@ class FileParserService(FileParser):
                 result = Census(codice_comune="H501")
             return result
 
-    def _parse_name(self, land_sheet: LandSheet, name: str) -> LandSheet:
+    def _parse_carto_filename(self, land_sheet: LandSheet, name: str) -> LandSheet:
         land_sheet.codice_foglio = name
         land_sheet.codice_comune = name[:4]
         land_sheet.codice_sezione_censuaria = name[4]
@@ -53,7 +53,7 @@ class FileParserService(FileParser):
         land_sheet.codice_sviluppo = name[10]
         return land_sheet
 
-    def _parse_header(
+    def _parse_carto_fileheader(
         self, land_sheet: LandSheet, _iter: Iterator
     ) -> Tuple[LandSheet, Iterator]:
         header = HeaderModel()
@@ -63,7 +63,7 @@ class FileParserService(FileParser):
         land_sheet.header = header
         return (land_sheet, _iter)
 
-    def _parse_objects(
+    def _parse_carto_objects(
         self, land_sheet: LandSheet, _iter: Iterator
     ) -> Tuple[LandSheet, Iterator]:
         def _get_tipo(_iter: Iterator, obj: Dict) -> Dict:
