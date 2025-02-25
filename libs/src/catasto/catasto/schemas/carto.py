@@ -4,9 +4,9 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class HeaderModel(BaseModel):
-    mappa: str = Field(None, alias="MAPPA")
-    nome_mappa: str = Field(None, alias="NOME MAPPA")
-    scala_originaria: str = Field(None, alias="SCALA ORIGINARIA")
+    mappa: str | None = Field(None, alias="MAPPA")
+    nome_mappa: str | None = Field(None, alias="NOME MAPPA")
+    scala_originaria: str | None = Field(None, alias="SCALA ORIGINARIA")
     oggetti: Dict[str, str] = {}
 
     @field_validator("mappa")
@@ -21,24 +21,24 @@ class HeaderModel(BaseModel):
 
 
 class CartoObject(BaseModel):
-    bordo: List = Field([], alias="BORDO")
-    testo: List = Field([], alias="TESTO")
-    simbolo: List = Field([], alias="SIMBOLO")
-    fiduciale: List = Field([], alias="FIDUCIALE")
-    linea: List = Field([], alias="LINEA")
-    eof: List = Field([], alias="EOF")
+    bordo: List = Field(default_factory=list, alias="BORDO")
+    testo: List = Field(default_factory=list, alias="TESTO")
+    simbolo: List = Field(default_factory=list, alias="SIMBOLO")
+    fiduciale: List = Field(default_factory=list, alias="FIDUCIALE")
+    linea: List = Field(default_factory=list, alias="LINEA")
+    eof: List = Field(default_factory=list, alias="EOF")
 
 
 class LandSheet(BaseModel):
-    codice_foglio: str = Field(None, alias="CODICE_FOGLIO")
-    codice_comune: str = Field(None, alias="CODICE_COMUNE")
-    codice_sezione_censuaria: str = Field(None, alias="CODICE SEZIONE CENSUARIA")
-    codice_numero_foglio: str = Field(None, alias="CODICE NUMERO FOGLIO")
-    numero_foglio: str = Field(None, alias="NUMERO FOGLIO")
-    codice_allegato: str = Field(None, alias="CODICE ALLEGATO")
-    codice_sviluppo: str = Field(None, alias="CODICE SVILUPPO")
-    header: HeaderModel = None
-    oggetti: CartoObject = None
+    codice_foglio: str | None = Field(None, alias="CODICE_FOGLIO")
+    codice_comune: str | None = Field(None, alias="CODICE_COMUNE")
+    codice_sezione_censuaria: str | None = Field(None, alias="CODICE SEZIONE CENSUARIA")
+    codice_numero_foglio: str | None = Field(None, alias="CODICE NUMERO FOGLIO")
+    numero_foglio: str | None = Field(None, alias="NUMERO FOGLIO")
+    codice_allegato: str | None = Field(None, alias="CODICE ALLEGATO")
+    codice_sviluppo: str | None = Field(None, alias="CODICE SVILUPPO")
+    header: HeaderModel | None = None
+    oggetti: CartoObject | None = None
 
     @field_validator("codice_sezione_censuaria")
     def validate_codice_sezione_censuaria(cls, val):
@@ -77,8 +77,8 @@ class LandSheet(BaseModel):
 
 class CartoObjectItem(BaseModel):
     codice_identificativo: str = Field(None, alias="CODICE_IDENTIFICATIVO")
-    tipo: str = None
-    vertici: List = Field([], alias="VERTICI")
-    tabisole: List = Field([], alias="TABISOLE")
-    numeroisole: str = Field(None, alias="NUMEROISOLE")
-    numerovertici: str = Field(None, alias="NUMEROVERTICI")
+    tipo: str | None = None
+    vertici: List = Field(default_factory=list, alias="VERTICI")
+    tabisole: List = Field(default_factory=list, alias="TABISOLE")
+    numeroisole: str | None = Field(None, alias="NUMEROISOLE")
+    numerovertici: str | None = Field(None, alias="NUMEROVERTICI")
