@@ -1,6 +1,11 @@
-from pydantic import AnyHttpUrl, BaseModel, field_validator
+from typing import Literal
+
+from pydantic import AnyHttpUrl, BaseModel, Field, field_validator
 
 from .enumeration import CartoTypeEnum, CensusTypeEnum
+
+# Tipo per campi opzionali
+OptionalStr = str | None
 
 
 class CommonBase(BaseModel):
@@ -52,6 +57,20 @@ class ReaderFile(BaseModel):
         ]:
             raise ValueError(f"The extension {val} is not valid for Catasto")
         return val
+
+
+# Definizioni dei modelli Pydantic (versione semplificata delle classi precedenti)
+class BaseRecord(BaseModel):
+    """Classe base per tutti i record del file fabbricati."""
+
+    codice_amministrativo: str = Field(..., min_length=4, max_length=4)
+    sezione: str = Field(..., min_length=1, max_length=1)
+    identificativo_immobile: str = Field(..., max_length=15)
+    tipo_immobile: Literal["F"] = Field(...)  # Deve essere 'F' per i fabbricati
+    progressivo: str = Field(..., min_length=3, max_length=3)
+    tipo_record: str = Field(...)  # Sarà validato dalle sottoclassi
+
+    model_config = {"extra": "forbid"}
 
 
 class UrlModel(BaseModel):

@@ -1,5 +1,5 @@
 import pytest
-from catasto.schemas.carto import HeaderModel, LandSheet
+from catasto.schemas.carto import CartoHeaderModel, LandSheet
 
 
 @pytest.mark.asyncio
@@ -43,7 +43,7 @@ class TestFileParserService:
             numero_foglio="767",
             codice_allegato="0",
             codice_sviluppo="0",
-            header=HeaderModel(
+            header=CartoHeaderModel(
                 mappa="MAPPA", nome_mappa="H501D076700", scala_originaria="4000.000"
             ),
         )

@@ -36,3 +36,7 @@ class Census(BaseModel):
     terreni: TerreniModel = Field(None, alias="TERRENI")
     soggetti: SoggettiModel = Field(None, alias="SOGGETTI")
     titolarita: TitolaritaModel = Field(None, alias="TITOLARITA")
+
+    model_config = {
+        "populate_by_name": True,
+    }

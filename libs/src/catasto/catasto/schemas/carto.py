@@ -3,7 +3,7 @@ from typing import Dict, List
 from pydantic import BaseModel, Field, field_validator
 
 
-class HeaderModel(BaseModel):
+class CartoHeaderModel(BaseModel):
     mappa: str | None = Field(None, alias="MAPPA")
     nome_mappa: str | None = Field(None, alias="NOME MAPPA")
     scala_originaria: str | None = Field(None, alias="SCALA ORIGINARIA")
@@ -37,7 +37,7 @@ class LandSheet(BaseModel):
     numero_foglio: str | None = Field(None, alias="NUMERO FOGLIO")
     codice_allegato: str | None = Field(None, alias="CODICE ALLEGATO")
     codice_sviluppo: str | None = Field(None, alias="CODICE SVILUPPO")
-    header: HeaderModel | None = None
+    header: CartoHeaderModel | None = None
     oggetti: CartoObject | None = None
 
     @field_validator("codice_sezione_censuaria")

@@ -1,12 +1,37 @@
 import logging
 from typing import Dict, Iterator, Protocol, Tuple, Union
 
+from pydantic import ValidationError
+
 from .reader import LocalFileReaderService, MinioFileReaderService
-from .schemas.carto import CartoObject, HeaderModel, LandSheet
+from .schemas.building import (
+    FabbricatiImmobile,
+    FabbricatiModel,
+    FabbricatiRecord1,
+    FabbricatiRecord2,
+    FabbricatiRecord3,
+    FabbricatiRecord4,
+    FabbricatiRecord5,
+    FabRecordInfo,
+)
+from .schemas.carto import CartoHeaderModel, CartoObject, LandSheet
 from .schemas.census import Census
 
 # Configurazione del logger
 logger = logging.getLogger(__name__)
+
+
+class ParsingError(Exception):
+    """Eccezione sollevata per errori nel parsing dei file catastali."""
+
+    def __init__(self, message, errors=None):
+        super().__init__(message)
+        self.errors = errors or []
+
+    def __str__(self):
+        if not self.errors:
+            return super().__str__()
+        return f"{super().__str__()}:\n" + "\n".join(self.errors)
 
 
 class FileParser(Protocol):
@@ -45,7 +70,7 @@ class FileParserService(FileParser):
                     carto = self._parse_carto_filename(carto, name)
                     # parse content
                     gen_lines = iter(content.splitlines())
-                    carto.header = HeaderModel()
+                    carto.header = CartoHeaderModel()
                     carto, gen_lines = self._parse_carto_fileheader(carto, gen_lines)
                     carto = self._parse_carto_objects(carto, gen_lines)
                     result = carto
@@ -65,7 +90,7 @@ class FileParserService(FileParser):
                     # basepath = os.path.splitext(_reader.filepath)[0]
 
                     # Elabora il file principale
-                    self._parse_census_file(census, filetype, content)
+                    self._parse_census_filename(census, filetype, content)
 
                     # Se il file principale è FAB, TER o SOG, cerca di elaborare anche gli altri file correlati
                     # if filetype in [".FAB", ".TER", ".SOG"]:
@@ -98,7 +123,7 @@ class FileParserService(FileParser):
     def _parse_carto_fileheader(
         self, land_sheet: LandSheet, _iter: Iterator
     ) -> Tuple[LandSheet, Iterator]:
-        header = HeaderModel()
+        header = CartoHeaderModel()
         header.mappa = next(_iter).strip()
         header.nome_mappa = next(_iter).strip()
         header.scala_originaria = next(_iter).strip()
@@ -260,3 +285,554 @@ class FileParserService(FileParser):
             logger.warning(
                 f"Tipo di file non supportato per il parsing censuario: {filetype}"
             )
+
+    def _parse_fab_file(self, census: Census, content: str) -> None:
+        """
+        Parsifica un file .FAB e aggiorna l'oggetto Census con i dati di fabbricati.
+
+        Args:
+            census: L'oggetto Census da aggiornare
+            content: Il contenuto del file FAB
+
+        Raises:
+            ValueError: Se il file è vuoto o malformato
+            ValidationError: Se i dati non rispettano i vincoli dei modelli
+            ParsingError: Se ci sono errori durante il parsing
+        """
+        if not content:
+            raise ValueError("Contenuto del file FAB vuoto o non valido")
+        # Inizializza il modello FabbricatiModel se non esiste già
+        if not census.fabbricati:
+            census.fabbricati = FabbricatiModel()
+
+        # Errori accumulati durante il parsing
+        errors = []
+
+        try:
+            # Organizziamo i record per immobile
+            record_groups = {}
+
+            # Processa ogni linea
+            for line_num, line in enumerate(content.splitlines(), 1):
+                if not line:
+                    continue
+
+                try:
+                    # Estrai le informazioni di base
+                    record_info = self._parse_fab_record_info(line)
+                    key = (
+                        record_info.codice_amministrativo,
+                        record_info.sezione,
+                        record_info.identificativo_immobile,
+                        record_info.tipo_immobile,
+                        record_info.progressivo,
+                    )
+
+                    # Se è un nuovo immobile, inizializza il dizionario
+                    if key not in record_groups:
+                        record_groups[key] = {}
+
+                    # Aggiungi il record al dizionario dell'immobile
+                    record_groups[key][record_info.tipo_record] = record_info.raw_line
+
+                except Exception as e:
+                    # Accumula l'errore
+                    errors.append(f"Errore alla riga {line_num}: {str(e)}")
+
+            # Solleva un'eccezione se ci sono stati errori durante il parsing delle righe
+            if errors:
+                print(errors)
+                raise ParsingError("Errori nel parsing del file FAB", errors)
+
+            # Processa ogni gruppo di record per creare immobili
+            for key, records in record_groups.items():
+                try:
+                    # Verifica che ci siano i record obbligatori
+                    if "1" not in records.keys():
+                        errors.append(
+                            f"Immobile {key}: manca il record di tipo 1 (obbligatorio)"
+                        )
+                        continue
+
+                    if "2" not in records.keys():
+                        errors.append(
+                            f"Immobile {key}: manca il record di tipo 2 (obbligatorio)"
+                        )
+                        continue
+
+                    # Crea l'immobile
+                    immobile = self._parse_fab_immobile(key, records)
+
+                    # Aggiungi l'immobile al census
+                    census.fabbricati.add_immobile(immobile)
+
+                except Exception as e:
+                    errors.append(f"Errore nel parsing dell'immobile {key}: {str(e)}")
+
+            # Solleva un'eccezione se ci sono stati errori nel parsing degli immobili
+            if errors:
+                raise ParsingError("Errori nel parsing del file FAB", errors)
+
+            # Se non ci sono immobili, potrebbe essere un problema
+            if not census.fabbricati.immobili:
+                logger.warning("Nessun immobile trovato nel file FAB")
+
+        except ParsingError:
+            # Rilanciamo l'eccezione ParsingError senza modificarla
+            logger.error("Errori durante il parsing del file FAB")
+            raise
+
+        except Exception as e:
+            # Per altre eccezioni, le convertiamo in ParsingError
+            logger.error(
+                f"Errore non previsto durante il parsing del file FAB: {str(e)}"
+            )
+            raise ParsingError(f"Errore durante il parsing del file FAB: {str(e)}")
+
+    def _parse_fab_record_info(self, line: str) -> FabRecordInfo:
+        """
+        Estrae le informazioni di base da una riga del file FAB.
+
+        Args:
+            line: La riga del file FAB
+
+        Returns:
+            FabRecordInfo: Le informazioni estratte
+
+        Raises:
+            ValueError: Se la riga è malformata
+        """
+
+        try:
+            parser = parse_fab_record_info(line=line)
+            return parser
+        except Exception:
+            raise
+
+    def _parse_fab_immobile(
+        self, key: tuple, records: Dict[str, str]
+    ) -> FabbricatiImmobile:
+        """
+        Crea un oggetto FabbricatiImmobile dai record estratti.
+
+        Args:
+            key: Tupla che identifica l'immobile
+            records: Dizionario dei record per tipo
+
+        Returns:
+            FabbricatiImmobile: L'oggetto immobile creato
+
+        Raises:
+            ValueError: Se mancano i record obbligatori o se ci sono errori nei record
+        """
+
+        # Estrai i dati dalla chiave
+        (
+            codice_amministrativo,
+            sezione,
+            identificativo_immobile,
+            tipo_immobile,
+            progressivo,
+        ) = key
+
+        # Crea i record specifici
+        record1 = self._parse_fab_record1_line(records["1"])
+        record2 = self._parse_fab_record2_line(records["2"])
+
+        # Record opzionali
+        record3 = self._parse_fab_record3_line(records["3"]) if "3" in records else None
+        record4 = self._parse_fab_record4_line(records["4"]) if "4" in records else None
+        record5 = self._parse_fab_record5_line(records["5"]) if "5" in records else None
+
+        # Crea e restituisci l'oggetto immobile
+        return FabbricatiImmobile(
+            codice_amministrativo=codice_amministrativo,
+            sezione=sezione,
+            identificativo_immobile=identificativo_immobile,
+            tipo_immobile=tipo_immobile,
+            progressivo=progressivo,
+            record1=record1,
+            record2=record2,
+            record3=record3,
+            record4=record4,
+            record5=record5,
+        )
+
+    def _parse_fab_record1_line(self, line: str) -> FabbricatiRecord1:
+        """
+        Parsifica una riga di record di tipo 1.
+
+        Args:
+            line: La riga del record
+
+        Returns:
+            FabbricatiRecord1: L'oggetto record creato
+
+        Raises:
+            ValueError: Se la riga è malformata
+            ValidationError: Se i dati non rispettano i vincoli del modello
+        """
+
+        record_info = parse_fab_record_info(line=line)
+        parser = parse_fab_record1_line(record=record_info)
+
+        return parser
+
+    def _parse_fab_record2_line(self, line: str) -> FabbricatiRecord2:
+        """
+        Parsifica una riga di record di tipo 2.
+
+        Args:
+            line: La riga del record
+
+        Returns:
+            FabbricatiRecord2: L'oggetto record creato
+
+        Raises:
+            ValueError: Se la riga è malformata
+            ValidationError: Se i dati non rispettano i vincoli del modello
+        """
+        from .schemas.census import FabbricatiRecord2, Identificativo
+
+        # Estrai le informazioni di base
+        info = self._parse_fab_record_info(line)
+
+        # Crea un dizionario con i campi di base
+        record_data = {
+            "codice_amministrativo": info.codice_amministrativo,
+            "sezione": info.sezione,
+            "identificativo_immobile": info.identificativo_immobile,
+            "tipo_immobile": info.tipo_immobile,
+            "progressivo": info.progressivo,
+            "tipo_record": info.tipo_record,
+            "identificativi": [],
+        }
+
+        # Parsifica gli identificativi (esempio con separatore @)
+        identificativi_raw = info.data.split("@")
+        for identificativo_raw in identificativi_raw:
+            if not identificativo_raw.strip():
+                continue
+
+            # Parsifica i campi dell'identificativo (esempio con separatore #)
+            fields = identificativo_raw.split("#")
+            if len(fields) < 6:
+                raise ValueError(
+                    f"Formato identificativo non valido: {identificativo_raw}"
+                )
+
+            # Crea direttamente l'oggetto Identificativo
+            identificativo = Identificativo(
+                sezione_urbana=fields[0],
+                foglio=fields[1],
+                numero=fields[2],
+                denominatore=fields[3],
+                subalterno=fields[4],
+                edificialita=fields[5],
+            )
+
+            record_data["identificativi"].append(identificativo)
+
+        # Validazione con Pydantic: questo solleverà ValidationError se i dati non rispettano i vincoli
+        return FabbricatiRecord2(**record_data)
+
+    def _parse_fab_record3_line(self, line: str) -> FabbricatiRecord3:
+        """
+        Parsifica una riga di record di tipo 3.
+
+        Args:
+            line: La riga del record
+
+        Returns:
+            FabbricatiRecord3: L'oggetto record creato
+
+        Raises:
+            ValueError: Se la riga è malformata
+            ValidationError: Se i dati non rispettano i vincoli del modello
+        """
+        from .schemas.census import FabbricatiRecord3, Indirizzo
+
+        # Estrai le informazioni di base
+        info = self._parse_fab_record_info(line)
+
+        # Crea un dizionario con i campi di base
+        record_data = {
+            "codice_amministrativo": info.codice_amministrativo,
+            "sezione": info.sezione,
+            "identificativo_immobile": info.identificativo_immobile,
+            "tipo_immobile": info.tipo_immobile,
+            "progressivo": info.progressivo,
+            "tipo_record": info.tipo_record,
+            "indirizzi": [],
+        }
+
+        # Parsifica gli indirizzi (esempio con separatore @)
+        indirizzi_raw = info.data.split("@")
+        for indirizzo_raw in indirizzi_raw:
+            if not indirizzo_raw.strip():
+                continue
+
+            # Parsifica i campi dell'indirizzo (esempio con separatore #)
+            fields = indirizzo_raw.split("#")
+            if len(fields) < 6:
+                raise ValueError(f"Formato indirizzo non valido: {indirizzo_raw}")
+
+            # Crea direttamente l'oggetto Indirizzo
+            indirizzo = Indirizzo(
+                toponimo=fields[0],
+                indirizzo=fields[1],
+                civico1=fields[2] if fields[2] else None,
+                civico2=fields[3] if fields[3] else None,
+                civico3=fields[4] if fields[4] else None,
+                codice_strada=fields[5],
+            )
+
+            record_data["indirizzi"].append(indirizzo)
+
+        # Validazione con Pydantic: questo solleverà ValidationError se i dati non rispettano i vincoli
+        return FabbricatiRecord3(**record_data)
+
+    def _parse_fab_record4_line(self, line: str) -> FabbricatiRecord4:
+        """
+        Parsifica una riga di record di tipo 4.
+
+        Args:
+            line: La riga del record
+
+        Returns:
+            FabbricatiRecord4: L'oggetto record creato
+
+        Raises:
+            ValueError: Se la riga è malformata
+            ValidationError: Se i dati non rispettano i vincoli del modello
+        """
+        from .schemas.census import FabbricatiRecord4, UtilitaComune
+
+        # Estrai le informazioni di base
+        info = self._parse_fab_record_info(line)
+
+        # Crea un dizionario con i campi di base
+        record_data = {
+            "codice_amministrativo": info.codice_amministrativo,
+            "sezione": info.sezione,
+            "identificativo_immobile": info.identificativo_immobile,
+            "tipo_immobile": info.tipo_immobile,
+            "progressivo": info.progressivo,
+            "tipo_record": info.tipo_record,
+            "utilita_comuni": [],
+        }
+
+        # Parsifica le utilità comuni (esempio con separatore @)
+        utilita_raw = info.data.split("@")
+        for utilita_raw in utilita_raw:
+            if not utilita_raw.strip():
+                continue
+
+            # Parsifica i campi dell'utilità comune (esempio con separatore #)
+            fields = utilita_raw.split("#")
+            if len(fields) < 5:
+                raise ValueError(f"Formato utilità comune non valido: {utilita_raw}")
+
+            # Crea direttamente l'oggetto UtilitaComune
+            utilita = UtilitaComune(
+                sezione_urbana=fields[0],
+                foglio=fields[1],
+                numero=fields[2],
+                denominatore=fields[3],
+                subalterno=fields[4],
+            )
+
+            record_data["utilita_comuni"].append(utilita)
+
+        # Validazione con Pydantic: questo solleverà ValidationError se i dati non rispettano i vincoli
+        return FabbricatiRecord4(**record_data)
+
+    def _parse_fab_record5_line(self, line: str) -> FabbricatiRecord5:
+        """
+        Parsifica una riga di record di tipo 5.
+
+        Args:
+            line: La riga del record
+
+        Returns:
+            FabbricatiRecord5: L'oggetto record creato
+
+        Raises:
+            ValueError: Se la riga è malformata
+            ValidationError: Se i dati non rispettano i vincoli del modello
+        """
+        from .schemas.census import FabbricatiRecord5, Riserva
+
+        # Estrai le informazioni di base
+        info = self._parse_fab_record_info(line)
+
+        # Crea un dizionario con i campi di base
+        record_data = {
+            "codice_amministrativo": info.codice_amministrativo,
+            "sezione": info.sezione,
+            "identificativo_immobile": info.identificativo_immobile,
+            "tipo_immobile": info.tipo_immobile,
+            "progressivo": info.progressivo,
+            "tipo_record": info.tipo_record,
+            "riserve": [],
+        }
+
+        # Parsifica le riserve (esempio con separatore @)
+        riserve_raw = info.data.split("@")
+        for riserva_raw in riserve_raw:
+            if not riserva_raw.strip():
+                continue
+
+            # Parsifica i campi della riserva (esempio con separatore #)
+            fields = riserva_raw.split("#")
+            if len(fields) < 2:
+                raise ValueError(f"Formato riserva non valido: {riserva_raw}")
+
+            # Crea direttamente l'oggetto Riserva
+            riserva = Riserva(
+                codice_riserva=fields[0], partita_iscrizione_riserva=fields[1]
+            )
+
+            record_data["riserve"].append(riserva)
+
+        # Validazione con Pydantic: questo solleverà ValidationError se i dati non rispettano i vincoli
+        return FabbricatiRecord5(**record_data)
+
+
+def parse_fab_record_info(line: str) -> FabRecordInfo:
+    """
+    Estrae le informazioni di base da una riga del file FAB.
+
+    Args:
+        line: La riga del file FAB
+
+    Returns:
+        FabRecordInfo: Le informazioni estratte
+
+    Raises:
+        ValueError: Se la riga è malformata
+    """
+
+    # Divide la linea nelle parti header e data
+    parts = line.split("|")
+    if len(parts) < 5:
+        raise ValueError(f"Formato riga non valido: {line}")
+
+    header = parts[:6]
+    data = parts[6:]
+
+    # Estrai i campi chiave dall'header
+    if len(header) < 5:
+        raise ValueError(f"Header troppo corto: {header}")
+
+    codice_amministrativo = header[0]
+    sezione = header[1]
+    identificativo_immobile = header[2]
+    tipo_immobile = header[3]
+    progressivo = header[4]
+    tipo_record = header[5]
+
+    # Crea e restituisci l'oggetto FabRecordInfo
+    try:
+        return FabRecordInfo(
+            codice_amministrativo=codice_amministrativo,
+            sezione=sezione,
+            identificativo_immobile=identificativo_immobile,
+            tipo_immobile=tipo_immobile,
+            progressivo=progressivo,
+            tipo_record=tipo_record,
+            data=data,  # La parte dati dopo il tipo record
+            raw_line=line,  # Linea completa per riferimento
+            raw_tuple=parts,
+            items_number=len(parts),
+        )
+    except ValidationError:
+        raise
+
+
+def parse_fab_record1_line(
+    record: FabRecordInfo,
+) -> FabbricatiRecord1:
+    """
+    Parsifica una riga di record di tipo 1.
+
+    Args:
+        record: La riga del record con modello FabRecordInfo
+
+    Returns:
+        FabbricatiRecord1: L'oggetto record creato
+
+    Raises:
+        ValidationError: Se i dati non rispettano i vincoli del modello
+    """
+
+    # Crea un dizionario con i campi di base
+    record_data = {
+        "codice_amministrativo": record.codice_amministrativo,
+        "sezione": record.sezione,
+        "identificativo_immobile": record.identificativo_immobile,
+        "tipo_immobile": record.tipo_immobile,
+        "progressivo": record.progressivo,
+        "tipo_record": record.tipo_record,
+    }
+
+    # Mappa dei campi in base alla posizione nei dati suddivisi
+
+    field_mapping = [
+        "zona",
+        "categoria",
+        "classe",
+        "consistenza",
+        "superficie",
+        "rendita_lire",
+        "rendita_euro",
+        "lotto",
+        "edificio",
+        "scala",
+        "interno1",
+        "interno2",
+        "piano1",
+        "piano2",
+        "piano3",
+        "piano4",
+        "data_efficacia_iniziale",
+        "data_registrazione_atti_iniziale",
+        "tipo_nota_iniziale",
+        "numero_nota_iniziale",
+        "progressivo_nota_iniziale",
+        "anno_nota_iniziale",
+        "data_efficacia_finale",
+        "data_registrazione_atti_finale",
+        "tipo_nota_finale",
+        "numero_nota_finale",
+        "progressivo_nota_finale",
+        "anno_nota_finale",
+        "partita",
+        "annotazione",
+        "identificativo_mutazione_iniziale",
+        "identificativo_mutazione_finale",
+        "protocollo_notifica",
+        "data_notifica",
+        "codice_causale_atto_generante",
+        "descrizione_atto_generante",
+        "codice_causale_atto_conclusivo",
+        "descrizione_atto_conclusivo",
+        "flag_classamento",
+    ]
+
+    # Popola il dizionario con i valori dai campi
+    if len(record.data) > len(field_mapping):
+        record.data = record.data[
+            : len(record.data) - 1
+        ]  # elimino l'ultimo elemento non rilevante
+    for i, field_name in enumerate(field_mapping):
+        if i <= len(record.data):
+            record_data[field_name] = record.data[i]
+
+    # Validazione con Pydantic: questo solleverà ValidationError se i dati non rispettano i vincoli
+    try:
+        record1 = FabbricatiRecord1(**record_data)
+    except ValidationError:
+        raise
+
+    return record1
