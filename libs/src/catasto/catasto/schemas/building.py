@@ -390,16 +390,14 @@ class Identificativo(BaseModel):
     sezione_urbana: Annotated[
         str,
         Field(
-            min_length=3,
             max_length=3,
             alias="SEZIONE URBANA",
         ),
     ]
-    foglio: Annotated[str, Field(min_length=4, max_length=4, alias="FOGLIO")]
+    foglio: Annotated[str, Field(min_length=1, max_length=4, alias="FOGLIO")]
     numero: Annotated[
         str,
         Field(
-            min_length=5,
             max_length=5,
             alias="NUMERO",
         ),
@@ -407,7 +405,6 @@ class Identificativo(BaseModel):
     denominatore: Annotated[
         str,
         Field(
-            min_length=4,
             max_length=4,
             alias="DENOMINATORE",
         ),
@@ -415,7 +412,6 @@ class Identificativo(BaseModel):
     subalterno: Annotated[
         str,
         Field(
-            min_length=4,
             max_length=4,
             alias="SUBALTERNO",
         ),
@@ -423,7 +419,6 @@ class Identificativo(BaseModel):
     edificialita: Annotated[
         str,
         Field(
-            min_length=1,
             max_length=1,
             alias="EDIFICIALITA",
         ),

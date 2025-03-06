@@ -764,7 +764,7 @@ class FabbricatiTestGenerator:
                 # Formatta gli identificativi per il record di tipo 2
                 identificativi_parts = []
                 for identificativo in record.identificativi:
-                    part = "#".join(
+                    part = "|".join(
                         [
                             identificativo.sezione_urbana,
                             identificativo.foglio,
@@ -776,13 +776,13 @@ class FabbricatiTestGenerator:
                     )
                     identificativi_parts.append(part)
 
-                data += "|" + "@".join(identificativi_parts)
+                data += "|".join(identificativi_parts)
 
             elif record.tipo_record == "3":
                 # Formatta gli indirizzi per il record di tipo 3
                 indirizzi_parts = []
                 for indirizzo in record.indirizzi:
-                    part = "#".join(
+                    part = "|".join(
                         [
                             indirizzo.toponimo,
                             indirizzo.indirizzo,
@@ -794,13 +794,13 @@ class FabbricatiTestGenerator:
                     )
                     indirizzi_parts.append(part)
 
-                data += "|" + "@".join(indirizzi_parts)
+                data += "|".join(indirizzi_parts)
 
             elif record.tipo_record == "4":
                 # Formatta le utilità comuni per il record di tipo 4
                 utilita_parts = []
                 for utilita in record.utilita_comuni:
-                    part = "#".join(
+                    part = "|".join(
                         [
                             utilita.sezione_urbana,
                             utilita.foglio,
@@ -811,13 +811,13 @@ class FabbricatiTestGenerator:
                     )
                     utilita_parts.append(part)
 
-                data += "|" + "@".join(utilita_parts)
+                data += "|".join(utilita_parts)
 
             elif record.tipo_record == "5":
                 # Formatta le riserve per il record di tipo 5
                 riserve_parts = []
                 for riserva in record.riserve:
-                    part = "#".join(
+                    part = "|".join(
                         [
                             riserva.codice_riserva,
                             riserva.partita_iscrizione_riserva,
@@ -825,7 +825,7 @@ class FabbricatiTestGenerator:
                     )
                     riserve_parts.append(part)
 
-                data += "|" + "@".join(riserve_parts)
+                data += "|".join(riserve_parts)
 
             return f"{header}|{data}"
         except Exception as e:

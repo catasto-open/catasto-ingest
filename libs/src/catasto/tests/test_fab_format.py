@@ -2,6 +2,7 @@ import pytest
 from catasto.parser import (
     FileParserService,
     parse_fab_record1_line,
+    parse_fab_record2_line,
     parse_fab_record_info,
 )
 from catasto.reader import LocalFileReaderService
@@ -209,6 +210,57 @@ class TestFabbricatiRecord1:
     #         record_data["rendita_euro"] = rendita
     #         with pytest.raises(ValidationError):
     #             FabbricatiRecord1(**record_data)
+
+
+class TestFabbricatiRecord2:
+    """Test per il record di tipo 2 (identificativi dell'unità immobiliare)."""
+
+    def test_parse_fab_record_info_valid_line(self, static_fab_record2_valid_line):
+        """Verifica che una linea con un record generico di tipo 2 venga interpretata correttamente."""
+
+        fab_record_info = parse_fab_record_info(static_fab_record2_valid_line)
+
+        assert fab_record_info.codice_amministrativo == "H501"
+        assert fab_record_info.sezione == " "
+        assert fab_record_info.identificativo_immobile == "351073"
+        assert fab_record_info.tipo_immobile == "F"
+        assert fab_record_info.progressivo == "4"
+        assert fab_record_info.tipo_record == "2"
+        # Considering the record format from the fixture
+        assert fab_record_info.items_number == 13
+
+    def test_parse_record2_valid_line(self, static_fab_record2_valid_line):
+        """Verifica che una linea con un record2 venga interpretata correttamente."""
+
+        fab_record_info = parse_fab_record_info(static_fab_record2_valid_line)
+        parser = parse_fab_record2_line(fab_record_info)
+
+        assert parser.codice_amministrativo == "H501"
+        assert parser.sezione == " "
+        assert parser.identificativo_immobile == "351073"
+        assert parser.tipo_immobile == "F"
+        assert parser.progressivo == "1"
+        assert parser.tipo_record == "2"
+
+        # Controlla che il record abbia almeno un identificativo
+        assert hasattr(parser, "identificativi")
+        assert len(parser.identificativi) > 0
+
+        # Verifica i campi dell'identificativo
+        identificativo = parser.identificativi[0]
+        assert identificativo.sezione_urbana == ""
+        assert identificativo.foglio == "0142"
+        assert identificativo.numero == "00101"
+        assert identificativo.denominatore == ""
+        assert identificativo.subalterno == "0004"
+        assert identificativo.edificialita == ""
+
+    def test_parse_record2_invalid_line(self, static_fab_record2_invalid_line):
+        """Verifica che una linea con un record2 invalido generi un errore."""
+
+        with pytest.raises(ValidationError):
+            fab_record_info = parse_fab_record_info(static_fab_record2_invalid_line)
+            parse_fab_record2_line(fab_record_info)
 
 
 # class TestFabbricatiRecord2:

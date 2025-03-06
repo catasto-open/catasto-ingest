@@ -72,6 +72,18 @@ def static_fab_record1_invalid_line():
     return "HG01| |581A000|G|d|1|006|A02|06|6,5|141||1057,45||||1||T-1||||27012020|28012020|V|045227|001|2020|||||||||341274286||||VAR|QUESTA VIENE CONSIDERATA UNA SIMULAZIONE|||1|"  # noqa
 
 
+@pytest.fixture
+def static_fab_record2_valid_line():
+    """Ritorna un record FAB di tipo 2 valido da dati sintetici."""
+    return "H501| |351073|F|1|2||0142|00101||0004||"
+
+
+@pytest.fixture
+def static_fab_record2_invalid_line():
+    """Ritorna un record FAB di tipo 2 valido da dati sintetici."""
+    return "H501| |351073|F|1|2||0142|00101||0004|E|"  # Edificialità E vuole numero che comincia per .
+
+
 # --- Fixture per generazione di file fabbricati ---
 
 

@@ -13,6 +13,10 @@ from .schemas.building import (
     FabbricatiRecord4,
     FabbricatiRecord5,
     FabRecordInfo,
+    Identificativo,
+    Indirizzo,
+    Riserva,
+    UtilitaComune,
 )
 from .schemas.carto import CartoHeaderModel, CartoObject, LandSheet
 from .schemas.census import Census
@@ -492,49 +496,11 @@ class FileParserService(FileParser):
             ValueError: Se la riga è malformata
             ValidationError: Se i dati non rispettano i vincoli del modello
         """
-        from .schemas.census import FabbricatiRecord2, Identificativo
 
-        # Estrai le informazioni di base
-        info = self._parse_fab_record_info(line)
+        record_info = parse_fab_record_info(line=line)
+        parser = parse_fab_record2_line(record=record_info)
 
-        # Crea un dizionario con i campi di base
-        record_data = {
-            "codice_amministrativo": info.codice_amministrativo,
-            "sezione": info.sezione,
-            "identificativo_immobile": info.identificativo_immobile,
-            "tipo_immobile": info.tipo_immobile,
-            "progressivo": info.progressivo,
-            "tipo_record": info.tipo_record,
-            "identificativi": [],
-        }
-
-        # Parsifica gli identificativi (esempio con separatore @)
-        identificativi_raw = info.data.split("@")
-        for identificativo_raw in identificativi_raw:
-            if not identificativo_raw.strip():
-                continue
-
-            # Parsifica i campi dell'identificativo (esempio con separatore #)
-            fields = identificativo_raw.split("#")
-            if len(fields) < 6:
-                raise ValueError(
-                    f"Formato identificativo non valido: {identificativo_raw}"
-                )
-
-            # Crea direttamente l'oggetto Identificativo
-            identificativo = Identificativo(
-                sezione_urbana=fields[0],
-                foglio=fields[1],
-                numero=fields[2],
-                denominatore=fields[3],
-                subalterno=fields[4],
-                edificialita=fields[5],
-            )
-
-            record_data["identificativi"].append(identificativo)
-
-        # Validazione con Pydantic: questo solleverà ValidationError se i dati non rispettano i vincoli
-        return FabbricatiRecord2(**record_data)
+        return parser
 
     def _parse_fab_record3_line(self, line: str) -> FabbricatiRecord3:
         """
@@ -550,7 +516,6 @@ class FileParserService(FileParser):
             ValueError: Se la riga è malformata
             ValidationError: Se i dati non rispettano i vincoli del modello
         """
-        from .schemas.census import FabbricatiRecord3, Indirizzo
 
         # Estrai le informazioni di base
         info = self._parse_fab_record_info(line)
@@ -606,7 +571,6 @@ class FileParserService(FileParser):
             ValueError: Se la riga è malformata
             ValidationError: Se i dati non rispettano i vincoli del modello
         """
-        from .schemas.census import FabbricatiRecord4, UtilitaComune
 
         # Estrai le informazioni di base
         info = self._parse_fab_record_info(line)
@@ -661,7 +625,6 @@ class FileParserService(FileParser):
             ValueError: Se la riga è malformata
             ValidationError: Se i dati non rispettano i vincoli del modello
         """
-        from .schemas.census import FabbricatiRecord5, Riserva
 
         # Estrai le informazioni di base
         info = self._parse_fab_record_info(line)
@@ -743,8 +706,10 @@ def parse_fab_record_info(line: str) -> FabRecordInfo:
             tipo_record=tipo_record,
             data=data,  # La parte dati dopo il tipo record
             raw_line=line,  # Linea completa per riferimento
-            raw_tuple=parts,
-            items_number=len(parts),
+            raw_tuple=parts,  # non tiene in considerazione la specifica
+            items_number=len(
+                parts
+            ),  # La lunghezza non tiene in considerazione la specifica
         )
     except ValidationError:
         raise
@@ -836,3 +801,82 @@ def parse_fab_record1_line(
         raise
 
     return record1
+
+
+def parse_fab_record2_line(
+    record: FabRecordInfo,
+) -> FabbricatiRecord2:
+    """
+    Parsifica una riga di record di tipo 2.
+
+    Args:
+        record: La riga del record con modello FabRecordInfo
+
+    Returns:
+        FabbricatiRecord2: L'oggetto record creato
+
+    Raises:
+        ValidationError: Se i dati non rispettano i vincoli del modello
+    """
+
+    # Crea un dizionario con i campi di base
+    record_data = {
+        "codice_amministrativo": record.codice_amministrativo,
+        "sezione": record.sezione,
+        "identificativo_immobile": record.identificativo_immobile,
+        "tipo_immobile": record.tipo_immobile,
+        "progressivo": record.progressivo,
+        "tipo_record": record.tipo_record,
+    }
+
+    # Mappa dei campi in base alla posizione nei dati suddivisi
+
+    field_mapping = [
+        "sezione_urbana",
+        "foglio",
+        "numero",
+        "denominatore",
+        "subalterno",
+        "edificialita",
+    ]
+
+    # Lista per contenere tutti gli identificativi
+    num_identificativi = len(record.data) % len(field_mapping)
+    identificativi = []
+
+    # Itera attraverso i blocchi di dati per creare ogni identificativo
+    for i in range(num_identificativi):
+        # Estrai i dati per questo identificativo
+        start_idx = i * len(field_mapping)
+        end_idx = start_idx + len(field_mapping)
+
+        # Se non ci sono abbastanza dati, interrompi il ciclo
+        if start_idx >= len(record.data):
+            break
+
+        # Estrai i dati per questo identificativo
+        id_data = record.data[start_idx:end_idx]
+
+        # Crea un dizionario per questo identificativo
+        identificativo_data = {}
+        for j, field_name in enumerate(field_mapping):
+            if j <= len(id_data):
+                identificativo_data[field_name] = id_data[j]
+
+        # Crea l'oggetto Identificativo e aggiungilo alla lista
+        try:
+            identificativo = Identificativo(**identificativo_data)
+            identificativi.append(identificativo)
+        except ValidationError as e:
+            print(f"Errore nella creazione dell'identificativo {i+1}: {str(e)}")
+            raise
+
+    # Aggiungi la lista di identificativi al dizionario dei dati del record
+    record_data["identificativi"] = identificativi
+
+    # Crea e restituisci l'oggetto FabbricatiRecord2
+    try:
+        return FabbricatiRecord2(**record_data)
+    except ValidationError as e:
+        print(f"Errore nella creazione del record2: {str(e)}")
+        raise
