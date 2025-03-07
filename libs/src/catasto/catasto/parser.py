@@ -537,44 +537,10 @@ class FileParserService(FileParser):
             ValidationError: Se i dati non rispettano i vincoli del modello
         """
 
-        # Estrai le informazioni di base
-        info = self._parse_fab_record_info(line)
+        record_info = parse_fab_record_info(line=line)
+        parser = parse_fab_record4_line(record=record_info)
 
-        # Crea un dizionario con i campi di base
-        record_data = {
-            "codice_amministrativo": info.codice_amministrativo,
-            "sezione": info.sezione,
-            "identificativo_immobile": info.identificativo_immobile,
-            "tipo_immobile": info.tipo_immobile,
-            "progressivo": info.progressivo,
-            "tipo_record": info.tipo_record,
-            "utilita_comuni": [],
-        }
-
-        # Parsifica le utilità comuni (esempio con separatore @)
-        utilita_raw = info.data.split("@")
-        for utilita_raw in utilita_raw:
-            if not utilita_raw.strip():
-                continue
-
-            # Parsifica i campi dell'utilità comune (esempio con separatore #)
-            fields = utilita_raw.split("#")
-            if len(fields) < 5:
-                raise ValueError(f"Formato utilità comune non valido: {utilita_raw}")
-
-            # Crea direttamente l'oggetto UtilitaComune
-            utilita = UtilitaComune(
-                sezione_urbana=fields[0],
-                foglio=fields[1],
-                numero=fields[2],
-                denominatore=fields[3],
-                subalterno=fields[4],
-            )
-
-            record_data["utilita_comuni"].append(utilita)
-
-        # Validazione con Pydantic: questo solleverà ValidationError se i dati non rispettano i vincoli
-        return FabbricatiRecord4(**record_data)
+        return parser
 
     def _parse_fab_record5_line(self, line: str) -> FabbricatiRecord5:
         """
@@ -751,9 +717,9 @@ def parse_fab_record1_line(
     ]
 
     # Popola il dizionario con i valori dai campi
-    if len(record.data) > len(field_mapping):
+    if len(record.data) % len(field_mapping) > 0:
         record.data = record.data[
-            : len(record.data) - 1
+            : len(record.data) - (len(record.data) % len(field_mapping))
         ]  # elimino l'ultimo elemento non rilevante
     for i, field_name in enumerate(field_mapping):
         if i <= len(record.data):
@@ -806,7 +772,7 @@ def parse_fab_record2_line(
     ]
 
     # Lista per contenere tutti gli identificativi
-    num_identificativi = len(record.data) % len(field_mapping)
+    num_identificativi = len(record.data) // len(field_mapping)
     identificativi = []
 
     # Itera attraverso i blocchi di dati per creare ogni identificativo
@@ -885,7 +851,7 @@ def parse_fab_record3_line(
     ]
 
     # Lista per contenere tutti gli identificativi
-    num_indirizzi = len(record.data) % len(field_mapping)
+    num_indirizzi = len(record.data) // len(field_mapping)
     indirizzi = []
 
     # Itera attraverso i blocchi di dati per creare ogni identificativo
@@ -922,5 +888,83 @@ def parse_fab_record3_line(
     try:
         return FabbricatiRecord3(**record_data)
     except ValidationError as e:
-        print(f"Errore nella creazione del record2: {str(e)}")
+        print(f"Errore nella creazione del record3: {str(e)}")
+        raise
+
+
+def parse_fab_record4_line(
+    record: FabRecordInfo,
+) -> FabbricatiRecord4:
+    """
+    Parsifica una riga di record di tipo 4.
+
+    Args:
+        record: La riga del record con modello FabRecordInfo
+
+    Returns:
+        FabbricatiRecord2: L'oggetto record creato
+
+    Raises:
+        ValidationError: Se i dati non rispettano i vincoli del modello
+    """
+
+    # Crea un dizionario con i campi di base
+    record_data = {
+        "codice_amministrativo": record.codice_amministrativo,
+        "sezione": record.sezione,
+        "identificativo_immobile": record.identificativo_immobile,
+        "tipo_immobile": record.tipo_immobile,
+        "progressivo": record.progressivo,
+        "tipo_record": record.tipo_record,
+    }
+
+    # Mappa dei campi in base alla posizione nei dati suddivisi
+
+    field_mapping = [
+        "sezione_urbana",
+        "foglio",
+        "numero",
+        "denominatore",
+        "subalterno",
+    ]
+
+    # Lista per contenere tutti gli identificativi
+    num_utilita_comune = len(record.data) // len(field_mapping)
+    utilita_comuni = []
+
+    # Itera attraverso i blocchi di dati per creare ogni identificativo
+    for i in range(num_utilita_comune):
+        # Estrai i dati per questo identificativo
+        start_idx = i * len(field_mapping)
+        end_idx = start_idx + len(field_mapping)
+
+        # Se non ci sono abbastanza dati, interrompi il ciclo
+        if start_idx >= len(record.data):
+            break
+
+        # Estrai i dati per questo identificativo
+        id_data = record.data[start_idx:end_idx]
+
+        # Crea un dizionario per questo identificativo
+        utilita_comune_data = {}
+        for j, field_name in enumerate(field_mapping):
+            if j <= len(id_data):
+                utilita_comune_data[field_name] = id_data[j]
+
+        # Crea l'oggetto Indirizzo e aggiungilo alla lista
+        try:
+            utilita_comune = UtilitaComune(**utilita_comune_data)
+            utilita_comuni.append(utilita_comune)
+        except ValidationError as e:
+            print(f"Errore nella creazione dell'utilita comune {i+1}: {str(e)}")
+            raise
+
+    # Aggiungi la lista di utilita_comuni al dizionario dei dati del record
+    record_data["utilita_comuni"] = utilita_comuni
+
+    # Crea e restituisci l'oggetto FabbricatiRecord3
+    try:
+        return FabbricatiRecord4(**record_data)
+    except ValidationError as e:
+        print(f"Errore nella creazione del record4: {str(e)}")
         raise

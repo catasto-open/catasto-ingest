@@ -96,6 +96,18 @@ def static_fab_record3_invalid_line():
     return "H501| |4326|F|3|3|2363|MARIO ROSSI|73|||603|"  # Toponimo deve essere massimo 3 caratteri
 
 
+@pytest.fixture
+def static_fab_record4_valid_line():
+    """Ritorna un record FAB di tipo 4 valido da dati sintetici."""
+    return "H501| |173704|F|2|4||0391|00329||||0391|00578|||"
+
+
+@pytest.fixture
+def static_fab_record4_invalid_line():
+    """Ritorna un record FAB di tipo 4 valido da dati sintetici."""
+    return "H501| |173704|F|2|4||0391|00329||||0391|00689||11111|"  # Subalterno deve essere massimo 4 caratteri
+
+
 # --- Fixture per generazione di file fabbricati ---
 
 

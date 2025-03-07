@@ -283,7 +283,7 @@ class FabbricatiRecord1(BaseRecord):
                 raise ValueError(f"Giorno non valido: {giorno}")
             if not (1 <= m <= 12):
                 raise ValueError(f"Mese non valido: {mese}")
-            if not (1900 <= a <= 2050):  # Intervallo ragionevole di anni
+            if not (1900 <= a <= 2999):  # Intervallo ragionevole di anni
                 raise ValueError(f"Anno non valido: {anno}")
 
             # Prova a creare un oggetto datetime per verificare la validità completa
@@ -497,7 +497,7 @@ class UtilitaComune(BaseModel):
     sezione_urbana: Annotated[
         str,
         Field(
-            min_length=3,
+            default=None,
             max_length=3,
             alias="SEZIONE URBANA",
         ),
@@ -521,7 +521,7 @@ class UtilitaComune(BaseModel):
     denominatore: Annotated[
         str,
         Field(
-            min_length=4,
+            default=None,
             max_length=4,
             alias="DENOMINATORE",
         ),
@@ -529,7 +529,7 @@ class UtilitaComune(BaseModel):
     subalterno: Annotated[
         str,
         Field(
-            min_length=4,
+            default=None,
             max_length=4,
             alias="SUBALTERNO",
         ),

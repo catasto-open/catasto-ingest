@@ -4,6 +4,7 @@ from catasto.parser import (
     parse_fab_record1_line,
     parse_fab_record2_line,
     parse_fab_record3_line,
+    parse_fab_record4_line,
     parse_fab_record_info,
 )
 from catasto.reader import LocalFileReaderService
@@ -366,11 +367,11 @@ class TestFabbricatiRecord3:
         assert parser.progressivo == "3"
         assert parser.tipo_record == "3"
 
-        # Controlla che il record abbia almeno un identificativo
+        # Controlla che il record abbia almeno un indirizzo
         assert hasattr(parser, "indirizzi")
         assert len(parser.indirizzi) > 0
 
-        # Verifica i campi dell'identificativo
+        # Verifica i campi dell'indirizzo
         indirizzo = parser.indirizzi[0]
         assert indirizzo.toponimo == "236"
         assert indirizzo.indirizzo == "MARIO ROSSI"
@@ -380,7 +381,7 @@ class TestFabbricatiRecord3:
         assert indirizzo.codice_strada == "603"
 
     def test_parse_record3_invalid_line(self, static_fab_record3_invalid_line):
-        """Verifica che una linea con un record2 invalido generi un errore."""
+        """Verifica che una linea con un record3 invalido generi un errore."""
 
         with pytest.raises(ValidationError):
             fab_record_info = parse_fab_record_info(static_fab_record3_invalid_line)
@@ -471,6 +472,64 @@ class TestFabbricatiRecord3:
 
 #         with pytest.raises(ValidationError):
 #             FabbricatiRecord4(**record_data)
+
+
+class TestFabbricatiRecord4:
+    """Test per il record di tipo 4 (utilità comuni dell'unità immobiliare)."""
+
+    def test_parse_fab_record_info_valid_line(self, static_fab_record4_valid_line):
+        """Verifica che una linea con un record generico di tipo 4 venga interpretata correttamente."""
+
+        fab_record_info = parse_fab_record_info(static_fab_record4_valid_line)
+
+        assert fab_record_info.codice_amministrativo == "H501"
+        assert fab_record_info.sezione == " "
+        assert fab_record_info.identificativo_immobile == "173704"
+        assert fab_record_info.tipo_immobile == "F"
+        assert fab_record_info.progressivo == "2"
+        assert fab_record_info.tipo_record == "4"
+        # Considering the record format from the fixture
+        assert fab_record_info.items_number == 17
+
+    def test_parse_record4_valid_line(self, static_fab_record4_valid_line):
+        """Verifica che una linea con un record4 venga interpretata correttamente."""
+
+        fab_record_info = parse_fab_record_info(static_fab_record4_valid_line)
+        parser = parse_fab_record4_line(fab_record_info)
+
+        assert parser.codice_amministrativo == "H501"
+        assert parser.sezione == " "
+        assert parser.identificativo_immobile == "173704"
+        assert parser.tipo_immobile == "F"
+        assert parser.progressivo == "2"
+        assert parser.tipo_record == "4"
+
+        # Controlla che il record abbia due utilità comuni
+        assert hasattr(parser, "utilita_comuni")
+        assert len(parser.utilita_comuni) == 2
+
+        # Verifica i campi del primo record di utilità comune
+        utilita_comune = parser.utilita_comuni[0]
+        assert utilita_comune.sezione_urbana == ""
+        assert utilita_comune.foglio == "0391"
+        assert utilita_comune.numero == "00329"
+        assert utilita_comune.denominatore == ""
+        assert utilita_comune.subalterno == ""
+
+        # Verifica i campi del secondo record di utilità comune
+        utilita_comune = parser.utilita_comuni[1]
+        assert utilita_comune.sezione_urbana == ""
+        assert utilita_comune.foglio == "0391"
+        assert utilita_comune.numero == "00578"
+        assert utilita_comune.denominatore == ""
+        assert utilita_comune.subalterno == ""
+
+    def test_parse_record4_invalid_line(self, static_fab_record4_invalid_line):
+        """Verifica che una linea con un record4 invalido generi un errore."""
+
+        with pytest.raises(ValidationError):
+            fab_record_info = parse_fab_record_info(static_fab_record4_invalid_line)
+            parse_fab_record4_line(fab_record_info)
 
 
 # class TestFabbricatiRecord5:
@@ -598,7 +657,7 @@ class TestFileValidazione:
         parser = FileParserService(reader=reader)
 
         # Il parser dovrebbe sollevare eccezioni per i record malformati
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             await parser.parse()
 
     @pytest.mark.asyncio
