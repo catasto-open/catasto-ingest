@@ -29,7 +29,7 @@ class FabbricatiUtils:
     @staticmethod
     def genera_formato_data():
         """Genera una data casuale nel formato GGMMAAAA."""
-        return fake.date_between(start_date="-32y", end_date="-1y").strftime("%d%m%Y")
+        return fake.date_between(start_date="-31y", end_date="-1y").strftime("%d%m%Y")
 
     @staticmethod
     def genera_data_successiva(data_iniziale: str, min_days=1, max_days=365 * 5):
