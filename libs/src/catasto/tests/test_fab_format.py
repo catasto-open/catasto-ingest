@@ -3,6 +3,7 @@ from catasto.parser import (
     FileParserService,
     parse_fab_record1_line,
     parse_fab_record2_line,
+    parse_fab_record3_line,
     parse_fab_record_info,
 )
 from catasto.reader import LocalFileReaderService
@@ -224,7 +225,7 @@ class TestFabbricatiRecord2:
         assert fab_record_info.sezione == " "
         assert fab_record_info.identificativo_immobile == "351073"
         assert fab_record_info.tipo_immobile == "F"
-        assert fab_record_info.progressivo == "4"
+        assert fab_record_info.progressivo == "1"
         assert fab_record_info.tipo_record == "2"
         # Considering the record format from the fixture
         assert fab_record_info.items_number == 13
@@ -333,6 +334,57 @@ class TestFabbricatiRecord2:
 
 #         with pytest.raises(ValidationError):
 #             FabbricatiRecord2(**record_data)
+
+
+class TestFabbricatiRecord3:
+    """Test per il record di tipo 3 (indirizzi dell'unità immobiliare)."""
+
+    def test_parse_fab_record_info_valid_line(self, static_fab_record3_valid_line):
+        """Verifica che una linea con un record generico di tipo 3 venga interpretata correttamente."""
+
+        fab_record_info = parse_fab_record_info(static_fab_record3_valid_line)
+
+        assert fab_record_info.codice_amministrativo == "H501"
+        assert fab_record_info.sezione == " "
+        assert fab_record_info.identificativo_immobile == "4326"
+        assert fab_record_info.tipo_immobile == "F"
+        assert fab_record_info.progressivo == "3"
+        assert fab_record_info.tipo_record == "3"
+        # Considering the record format from the fixture
+        assert fab_record_info.items_number == 13
+
+    def test_parse_record3_valid_line(self, static_fab_record3_valid_line):
+        """Verifica che una linea con un record3 venga interpretata correttamente."""
+
+        fab_record_info = parse_fab_record_info(static_fab_record3_valid_line)
+        parser = parse_fab_record3_line(fab_record_info)
+
+        assert parser.codice_amministrativo == "H501"
+        assert parser.sezione == " "
+        assert parser.identificativo_immobile == "4326"
+        assert parser.tipo_immobile == "F"
+        assert parser.progressivo == "3"
+        assert parser.tipo_record == "3"
+
+        # Controlla che il record abbia almeno un identificativo
+        assert hasattr(parser, "indirizzi")
+        assert len(parser.indirizzi) > 0
+
+        # Verifica i campi dell'identificativo
+        indirizzo = parser.indirizzi[0]
+        assert indirizzo.toponimo == "236"
+        assert indirizzo.indirizzo == "MARIO ROSSI"
+        assert indirizzo.civico1 == "73"
+        assert indirizzo.civico2 == ""
+        assert indirizzo.civico3 == ""
+        assert indirizzo.codice_strada == "603"
+
+    def test_parse_record3_invalid_line(self, static_fab_record3_invalid_line):
+        """Verifica che una linea con un record2 invalido generi un errore."""
+
+        with pytest.raises(ValidationError):
+            fab_record_info = parse_fab_record_info(static_fab_record3_invalid_line)
+            parse_fab_record3_line(fab_record_info)
 
 
 # class TestFabbricatiRecord3:

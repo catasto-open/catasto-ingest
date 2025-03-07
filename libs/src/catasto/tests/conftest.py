@@ -84,6 +84,18 @@ def static_fab_record2_invalid_line():
     return "H501| |351073|F|1|2||0142|00101||0004|E|"  # Edificialità E vuole numero che comincia per .
 
 
+@pytest.fixture
+def static_fab_record3_valid_line():
+    """Ritorna un record FAB di tipo 3 valido da dati sintetici."""
+    return "H501| |4326|F|3|3|236|MARIO ROSSI|73|||603|"
+
+
+@pytest.fixture
+def static_fab_record3_invalid_line():
+    """Ritorna un record FAB di tipo 3 valido da dati sintetici."""
+    return "H501| |4326|F|3|3|2363|MARIO ROSSI|73|||603|"  # Toponimo deve essere massimo 3 caratteri
+
+
 # --- Fixture per generazione di file fabbricati ---
 
 

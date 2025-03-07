@@ -517,45 +517,10 @@ class FileParserService(FileParser):
             ValidationError: Se i dati non rispettano i vincoli del modello
         """
 
-        # Estrai le informazioni di base
-        info = self._parse_fab_record_info(line)
+        record_info = parse_fab_record_info(line=line)
+        parser = parse_fab_record3_line(record=record_info)
 
-        # Crea un dizionario con i campi di base
-        record_data = {
-            "codice_amministrativo": info.codice_amministrativo,
-            "sezione": info.sezione,
-            "identificativo_immobile": info.identificativo_immobile,
-            "tipo_immobile": info.tipo_immobile,
-            "progressivo": info.progressivo,
-            "tipo_record": info.tipo_record,
-            "indirizzi": [],
-        }
-
-        # Parsifica gli indirizzi (esempio con separatore @)
-        indirizzi_raw = info.data.split("@")
-        for indirizzo_raw in indirizzi_raw:
-            if not indirizzo_raw.strip():
-                continue
-
-            # Parsifica i campi dell'indirizzo (esempio con separatore #)
-            fields = indirizzo_raw.split("#")
-            if len(fields) < 6:
-                raise ValueError(f"Formato indirizzo non valido: {indirizzo_raw}")
-
-            # Crea direttamente l'oggetto Indirizzo
-            indirizzo = Indirizzo(
-                toponimo=fields[0],
-                indirizzo=fields[1],
-                civico1=fields[2] if fields[2] else None,
-                civico2=fields[3] if fields[3] else None,
-                civico3=fields[4] if fields[4] else None,
-                codice_strada=fields[5],
-            )
-
-            record_data["indirizzi"].append(indirizzo)
-
-        # Validazione con Pydantic: questo solleverà ValidationError se i dati non rispettano i vincoli
-        return FabbricatiRecord3(**record_data)
+        return parser
 
     def _parse_fab_record4_line(self, line: str) -> FabbricatiRecord4:
         """
@@ -877,6 +842,85 @@ def parse_fab_record2_line(
     # Crea e restituisci l'oggetto FabbricatiRecord2
     try:
         return FabbricatiRecord2(**record_data)
+    except ValidationError as e:
+        print(f"Errore nella creazione del record2: {str(e)}")
+        raise
+
+
+def parse_fab_record3_line(
+    record: FabRecordInfo,
+) -> FabbricatiRecord3:
+    """
+    Parsifica una riga di record di tipo 3.
+
+    Args:
+        record: La riga del record con modello FabRecordInfo
+
+    Returns:
+        FabbricatiRecord2: L'oggetto record creato
+
+    Raises:
+        ValidationError: Se i dati non rispettano i vincoli del modello
+    """
+
+    # Crea un dizionario con i campi di base
+    record_data = {
+        "codice_amministrativo": record.codice_amministrativo,
+        "sezione": record.sezione,
+        "identificativo_immobile": record.identificativo_immobile,
+        "tipo_immobile": record.tipo_immobile,
+        "progressivo": record.progressivo,
+        "tipo_record": record.tipo_record,
+    }
+
+    # Mappa dei campi in base alla posizione nei dati suddivisi
+
+    field_mapping = [
+        "toponimo",
+        "indirizzo",
+        "civico1",
+        "civico2",
+        "civico3",
+        "codice_strada",
+    ]
+
+    # Lista per contenere tutti gli identificativi
+    num_indirizzi = len(record.data) % len(field_mapping)
+    indirizzi = []
+
+    # Itera attraverso i blocchi di dati per creare ogni identificativo
+    for i in range(num_indirizzi):
+        # Estrai i dati per questo identificativo
+        start_idx = i * len(field_mapping)
+        end_idx = start_idx + len(field_mapping)
+
+        # Se non ci sono abbastanza dati, interrompi il ciclo
+        if start_idx >= len(record.data):
+            break
+
+        # Estrai i dati per questo identificativo
+        id_data = record.data[start_idx:end_idx]
+
+        # Crea un dizionario per questo identificativo
+        indirizzo_data = {}
+        for j, field_name in enumerate(field_mapping):
+            if j <= len(id_data):
+                indirizzo_data[field_name] = id_data[j]
+
+        # Crea l'oggetto Indirizzo e aggiungilo alla lista
+        try:
+            indirizzo = Indirizzo(**indirizzo_data)
+            indirizzi.append(indirizzo)
+        except ValidationError as e:
+            print(f"Errore nella creazione dell'indirizzo {i+1}: {str(e)}")
+            raise
+
+    # Aggiungi la lista di indirizzi al dizionario dei dati del record
+    record_data["indirizzi"] = indirizzi
+
+    # Crea e restituisci l'oggetto FabbricatiRecord3
+    try:
+        return FabbricatiRecord3(**record_data)
     except ValidationError as e:
         print(f"Errore nella creazione del record2: {str(e)}")
         raise

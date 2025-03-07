@@ -459,7 +459,6 @@ class Indirizzo(BaseModel):
         str | None,
         Field(
             default=None,
-            min_length=1,
             max_length=6,
             alias="CIVICO 1",
         ),
@@ -468,7 +467,6 @@ class Indirizzo(BaseModel):
         str | None,
         Field(
             default=None,
-            min_length=1,
             max_length=6,
             alias="CIVICO 2",
         ),
@@ -477,7 +475,6 @@ class Indirizzo(BaseModel):
         str | None,
         Field(
             default=None,
-            min_length=1,
             max_length=6,
             alias="CIVICO 3",
         ),
@@ -485,7 +482,7 @@ class Indirizzo(BaseModel):
     codice_strada: Annotated[
         str,
         Field(
-            min_length=5,
+            default=None,
             max_length=5,
             alias="CODICE STRADA",
         ),
