@@ -545,7 +545,7 @@ class Riserva(BaseModel):
         str, Field(min_length=1, max_length=1, alias="CODICE RISERVA")
     ]
     partita_iscrizione_riserva: Annotated[
-        str, Field(min_length=7, max_length=7, alias="PARTITA ISCRIZIONE RISERVA")
+        str, Field(default=None, max_length=7, alias="PARTITA ISCRIZIONE RISERVA")
     ]
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)

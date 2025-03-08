@@ -315,7 +315,6 @@ class FileParserService(FileParser):
         try:
             # Organizziamo i record per immobile
             record_groups = {}
-
             # Processa ogni linea
             for line_num, line in enumerate(content.splitlines(), 1):
                 if not line:
@@ -557,40 +556,10 @@ class FileParserService(FileParser):
             ValidationError: Se i dati non rispettano i vincoli del modello
         """
 
-        # Estrai le informazioni di base
-        info = self._parse_fab_record_info(line)
+        record_info = parse_fab_record_info(line=line)
+        parser = parse_fab_record5_line(record=record_info)
 
-        # Crea un dizionario con i campi di base
-        record_data = {
-            "codice_amministrativo": info.codice_amministrativo,
-            "sezione": info.sezione,
-            "identificativo_immobile": info.identificativo_immobile,
-            "tipo_immobile": info.tipo_immobile,
-            "progressivo": info.progressivo,
-            "tipo_record": info.tipo_record,
-            "riserve": [],
-        }
-
-        # Parsifica le riserve (esempio con separatore @)
-        riserve_raw = info.data.split("@")
-        for riserva_raw in riserve_raw:
-            if not riserva_raw.strip():
-                continue
-
-            # Parsifica i campi della riserva (esempio con separatore #)
-            fields = riserva_raw.split("#")
-            if len(fields) < 2:
-                raise ValueError(f"Formato riserva non valido: {riserva_raw}")
-
-            # Crea direttamente l'oggetto Riserva
-            riserva = Riserva(
-                codice_riserva=fields[0], partita_iscrizione_riserva=fields[1]
-            )
-
-            record_data["riserve"].append(riserva)
-
-        # Validazione con Pydantic: questo solleverà ValidationError se i dati non rispettano i vincoli
-        return FabbricatiRecord5(**record_data)
+        return parser
 
 
 def parse_fab_record_info(line: str) -> FabRecordInfo:
@@ -965,6 +934,81 @@ def parse_fab_record4_line(
     # Crea e restituisci l'oggetto FabbricatiRecord3
     try:
         return FabbricatiRecord4(**record_data)
+    except ValidationError as e:
+        print(f"Errore nella creazione del record4: {str(e)}")
+        raise
+
+
+def parse_fab_record5_line(
+    record: FabRecordInfo,
+) -> FabbricatiRecord5:
+    """
+    Parsifica una riga di record di tipo 5.
+
+    Args:
+        record: La riga del record con modello FabRecordInfo
+
+    Returns:
+        FabbricatiRecord2: L'oggetto record creato
+
+    Raises:
+        ValidationError: Se i dati non rispettano i vincoli del modello
+    """
+
+    # Crea un dizionario con i campi di base
+    record_data = {
+        "codice_amministrativo": record.codice_amministrativo,
+        "sezione": record.sezione,
+        "identificativo_immobile": record.identificativo_immobile,
+        "tipo_immobile": record.tipo_immobile,
+        "progressivo": record.progressivo,
+        "tipo_record": record.tipo_record,
+    }
+
+    # Mappa dei campi in base alla posizione nei dati suddivisi
+
+    field_mapping = [
+        "codice_riserva",
+        "partita_iscrizione_riserva",
+    ]
+
+    # Lista per contenere tutti gli identificativi
+    num_riserva = len(record.data) // len(field_mapping)
+    riserve = []
+
+    # Itera attraverso i blocchi di dati per creare ogni riserva
+    for i in range(num_riserva):
+        # Estrai i dati per questa riserva
+        start_idx = i * len(field_mapping)
+        end_idx = start_idx + len(field_mapping)
+
+        # Se non ci sono abbastanza dati, interrompi il ciclo
+        if start_idx >= len(record.data):
+            break
+
+        # Estrai i dati per questa riserva
+        id_data = record.data[start_idx:end_idx]
+
+        # Crea un dizionario per questo riserva
+        riserva_data = {}
+        for j, field_name in enumerate(field_mapping):
+            if j <= len(id_data):
+                riserva_data[field_name] = id_data[j]
+
+        # Crea l'oggetto Riserva e aggiungilo alla lista
+        try:
+            riserva = Riserva(**riserva_data)
+            riserve.append(riserva)
+        except ValidationError as e:
+            print(f"Errore nella creazione della riserva {i+1}: {str(e)}")
+            raise
+
+    # Aggiungi la lista di riserve al dizionario dei dati del record
+    record_data["riserve"] = riserve
+
+    # Crea e restituisci l'oggetto FabbricatiRecord5
+    try:
+        return FabbricatiRecord5(**record_data)
     except ValidationError as e:
         print(f"Errore nella creazione del record4: {str(e)}")
         raise

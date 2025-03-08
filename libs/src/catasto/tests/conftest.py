@@ -108,6 +108,18 @@ def static_fab_record4_invalid_line():
     return "H501| |173704|F|2|4||0391|00329||||0391|00689||11111|"  # Subalterno deve essere massimo 4 caratteri
 
 
+@pytest.fixture
+def static_fab_record5_valid_line():
+    """Ritorna un record FAB di tipo 5 valido da dati sintetici."""
+    return "H501| |3675191|F|4|5|5||"
+
+
+@pytest.fixture
+def static_fab_record5_invalid_line():
+    """Ritorna un record FAB di tipo 5 valido da dati sintetici."""
+    return "H501| |3675191|F|4|5|5|1234567890|"  # Partita iscrizione riserva deve essere massimo 7 caratteri
+
+
 # --- Fixture per generazione di file fabbricati ---
 
 
@@ -154,8 +166,8 @@ def custom_fab_file():
                 # Modifica il contenuto direttamente nel file invece di modificare i record
                 # Questo permette di mantenere la validazione Pydantic ma avere un file con errori
                 content = FabbricatiTestGenerator.genera_file_content(records)
-                # Sostituisce una data valida con una invalida (32 come giorno)
-                content = content.replace("01", "32", 1)
+                # Sostituisce il tipo di immobile Fabbricato con un valore non valido
+                content = content.replace("F", "M")
                 f.write(content.encode("utf-8"))
             else:
                 content = FabbricatiTestGenerator.genera_file_content(records)

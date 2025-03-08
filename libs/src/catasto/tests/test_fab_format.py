@@ -1,10 +1,12 @@
 import pytest
 from catasto.parser import (
     FileParserService,
+    ParsingError,
     parse_fab_record1_line,
     parse_fab_record2_line,
     parse_fab_record3_line,
     parse_fab_record4_line,
+    parse_fab_record5_line,
     parse_fab_record_info,
 )
 from catasto.reader import LocalFileReaderService
@@ -431,49 +433,6 @@ class TestFabbricatiRecord3:
 #             FabbricatiRecord3(**record_data)
 
 
-# class TestFabbricatiRecord4:
-#     """Test per il record di tipo 4 (utilità comuni dell'unità immobiliare)."""
-
-#     def test_valid_record4(self):
-#         """Verifica che un record generato casualmente sia valido."""
-#         record1, key = FabbricatiGenerator.genera_record1()
-#         codice, sezione, id_immobile, progressivo = key
-#         record4_data = FabbricatiGenerator.genera_record4(
-#             codice, sezione, id_immobile, progressivo, num_utilita=2
-#         )
-
-#         record4 = FabbricatiRecord4(**record4_data)
-
-#         assert isinstance(record4, FabbricatiRecord4)
-#         assert record4.tipo_record == "4"
-#         assert record4.tipo_immobile == "F"
-#         assert len(record4.utilita_comuni) == 2
-#         assert isinstance(record4.utilita_comuni[0], UtilitaComune)
-
-#     def test_max_utilita_comuni(self):
-#         """Verifica che non si possano avere più di 10 utilità comuni."""
-#         record1, key = FabbricatiGenerator.genera_record1()
-#         codice, sezione, id_immobile, progressivo = key
-
-#         # Genera un record con 10 utilità comuni (dovrebbe funzionare)
-#         record_data = FabbricatiGenerator.genera_record4(
-#             codice, sezione, id_immobile, progressivo, num_utilita=10
-#         )
-#         record = FabbricatiRecord4(**record_data)
-#         assert len(record.utilita_comuni) == 10
-
-#         # Genera un record con 11 utilità comuni (dovrebbe fallire)
-#         record_data = FabbricatiGenerator.genera_record4(
-#             codice, sezione, id_immobile, progressivo, num_utilita=1
-#         )
-#         # Aggiungi manualmente più utilità comuni
-#         utilita = record_data["utilita_comuni"][0]
-#         record_data["utilita_comuni"] = [utilita.copy() for _ in range(11)]
-
-#         with pytest.raises(ValidationError):
-#             FabbricatiRecord4(**record_data)
-
-
 class TestFabbricatiRecord4:
     """Test per il record di tipo 4 (utilità comuni dell'unità immobiliare)."""
 
@@ -530,6 +489,96 @@ class TestFabbricatiRecord4:
         with pytest.raises(ValidationError):
             fab_record_info = parse_fab_record_info(static_fab_record4_invalid_line)
             parse_fab_record4_line(fab_record_info)
+
+
+# class TestFabbricatiRecord4:
+#     """Test per il record di tipo 4 (utilità comuni dell'unità immobiliare)."""
+
+#     def test_valid_record4(self):
+#         """Verifica che un record generato casualmente sia valido."""
+#         record1, key = FabbricatiGenerator.genera_record1()
+#         codice, sezione, id_immobile, progressivo = key
+#         record4_data = FabbricatiGenerator.genera_record4(
+#             codice, sezione, id_immobile, progressivo, num_utilita=2
+#         )
+
+#         record4 = FabbricatiRecord4(**record4_data)
+
+#         assert isinstance(record4, FabbricatiRecord4)
+#         assert record4.tipo_record == "4"
+#         assert record4.tipo_immobile == "F"
+#         assert len(record4.utilita_comuni) == 2
+#         assert isinstance(record4.utilita_comuni[0], UtilitaComune)
+
+#     def test_max_utilita_comuni(self):
+#         """Verifica che non si possano avere più di 10 utilità comuni."""
+#         record1, key = FabbricatiGenerator.genera_record1()
+#         codice, sezione, id_immobile, progressivo = key
+
+#         # Genera un record con 10 utilità comuni (dovrebbe funzionare)
+#         record_data = FabbricatiGenerator.genera_record4(
+#             codice, sezione, id_immobile, progressivo, num_utilita=10
+#         )
+#         record = FabbricatiRecord4(**record_data)
+#         assert len(record.utilita_comuni) == 10
+
+#         # Genera un record con 11 utilità comuni (dovrebbe fallire)
+#         record_data = FabbricatiGenerator.genera_record4(
+#             codice, sezione, id_immobile, progressivo, num_utilita=1
+#         )
+#         # Aggiungi manualmente più utilità comuni
+#         utilita = record_data["utilita_comuni"][0]
+#         record_data["utilita_comuni"] = [utilita.copy() for _ in range(11)]
+
+#         with pytest.raises(ValidationError):
+#             FabbricatiRecord4(**record_data)
+
+
+class TestFabbricatiRecord5:
+    """Test per il record di tipo 5 (riserve dell'unità immobiliare)."""
+
+    def test_parse_fab_record_info_valid_line(self, static_fab_record5_valid_line):
+        """Verifica che una linea con un record generico di tipo 5 venga interpretata correttamente."""
+
+        fab_record_info = parse_fab_record_info(static_fab_record5_valid_line)
+
+        assert fab_record_info.codice_amministrativo == "H501"
+        assert fab_record_info.sezione == " "
+        assert fab_record_info.identificativo_immobile == "3675191"
+        assert fab_record_info.tipo_immobile == "F"
+        assert fab_record_info.progressivo == "4"
+        assert fab_record_info.tipo_record == "5"
+        # Considering the record format from the fixture
+        assert fab_record_info.items_number == 9
+
+    def test_parse_record5_valid_line(self, static_fab_record5_valid_line):
+        """Verifica che una linea con un record4 venga interpretata correttamente."""
+
+        fab_record_info = parse_fab_record_info(static_fab_record5_valid_line)
+        parser = parse_fab_record5_line(fab_record_info)
+
+        assert parser.codice_amministrativo == "H501"
+        assert parser.sezione == " "
+        assert parser.identificativo_immobile == "3675191"
+        assert parser.tipo_immobile == "F"
+        assert parser.progressivo == "4"
+        assert parser.tipo_record == "5"
+
+        # Controlla che il record abbia almeno una riserva
+        assert hasattr(parser, "riserve")
+        assert len(parser.riserve) > 0
+
+        # Verifica i campi del primo record di riserva
+        riserva = parser.riserve[0]
+        assert riserva.codice_riserva == "5"
+        assert riserva.partita_iscrizione_riserva == ""
+
+    def test_parse_record5_invalid_line(self, static_fab_record5_invalid_line):
+        """Verifica che una linea con un record5 invalido generi un errore."""
+
+        with pytest.raises(ValidationError):
+            fab_record_info = parse_fab_record_info(static_fab_record5_invalid_line)
+            parse_fab_record5_line(fab_record_info)
 
 
 # class TestFabbricatiRecord5:
@@ -656,8 +705,8 @@ class TestFileValidazione:
         reader = LocalFileReaderService(filepath=str(file_path))
         parser = FileParserService(reader=reader)
 
-        # Il parser dovrebbe sollevare eccezioni per i record malformati
-        with pytest.raises(ValidationError):
+        # Il parser dovrebbe sollevare eccezioni raccolte in ParsingError per i record malformati
+        with pytest.raises(ParsingError):
             await parser.parse()
 
     @pytest.mark.asyncio
