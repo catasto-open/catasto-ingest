@@ -20,6 +20,7 @@ from .schemas.building import (
 )
 from .schemas.carto import CartoHeaderModel, CartoObject, LandSheet
 from .schemas.census import Census
+from .schemas.subject import SogRecordInfo
 
 # Configurazione del logger
 logger = logging.getLogger(__name__)
@@ -561,6 +562,127 @@ class FileParserService(FileParser):
 
         return parser
 
+    def _parse_sog_file(self, census: Census, content: str) -> None:
+        """
+        Parsifica un file .SOG e aggiorna l'oggetto Census con i dati degli intestati/soggetti.
+
+        Args:
+            census: L'oggetto Census da aggiornare
+            content: Il contenuto del file SOG
+
+        Raises:
+            ValueError: Se il file è vuoto o malformato
+            ValidationError: Se i dati non rispettano i vincoli dei modelli
+            ParsingError: Se ci sono errori durante il parsing
+        """
+        if not content:
+            raise ValueError("Contenuto del file SOG vuoto o non valido")
+        # Inizializza il modello SoggettiModel se non esiste già
+        if not census.soggetti:
+            census.soggetti = SoggettiModel()
+
+        # Errori accumulati durante il parsing
+        errors = []
+
+        try:
+            # Organizziamo i record per soggetto
+            record_groups = {}
+            # Processa ogni linea
+            for line_num, line in enumerate(content.splitlines(), 1):
+                if not line:
+                    continue
+
+                try:
+                    # Estrai le informazioni di base
+                    record_info = self._parse_sog_record_info(line)
+                    key = (
+                        record_info.codice_amministrativo,
+                        record_info.sezione,
+                        record_info.identificativo_soggetto,
+                        record_info.tipo_soggetto,
+                    )
+
+                    # Se è un nuovo immobile, inizializza il dizionario
+                    if key not in record_groups:
+                        record_groups[key] = {}
+
+                    # Aggiungi il record al dizionario del soggetto
+                    record_groups[key][record_info.tipo_record] = record_info.raw_line
+
+                except Exception as e:
+                    # Accumula l'errore
+                    errors.append(f"Errore alla riga {line_num}: {str(e)}")
+
+            # Solleva un'eccezione se ci sono stati errori durante il parsing delle righe
+            if errors:
+                print(errors)
+                raise ParsingError("Errori nel parsing del file SOG", errors)
+
+            # Processa ogni gruppo di record per creare soggetti
+            for key, records in record_groups.items():
+                try:
+                    # Verifica che ci siano i record obbligatori
+                    if "P" not in records.keys():
+                        errors.append(
+                            f"Soggetto {key}: manca il record di tipo P (obbligatorio)"
+                        )
+                        continue
+
+                    if "G" not in records.keys():
+                        errors.append(
+                            f"Soggetto {key}: manca il record di tipo G (obbligatorio)"
+                        )
+                        continue
+
+                    # Crea il soggetto
+                    intestato = self._parse_sog_intestato(key, records)
+
+                    # Aggiungi il soggetto al census
+                    census.soggetti.add_soggetto(intestato)
+
+                except Exception as e:
+                    errors.append(f"Errore nel parsing del soggetto {key}: {str(e)}")
+
+            # Solleva un'eccezione se ci sono stati errori nel parsing dei soggetti
+            if errors:
+                raise ParsingError("Errori nel parsing del file SOG", errors)
+
+            # Se non ci sono soggetti, potrebbe essere un problema
+            if not census.soggetti:
+                logger.warning("Nessun immobile trovato nel file SOG")
+
+        except ParsingError:
+            # Rilanciamo l'eccezione ParsingError senza modificarla
+            logger.error("Errori durante il parsing del file SOG")
+            raise
+
+        except Exception as e:
+            # Per altre eccezioni, le convertiamo in ParsingError
+            logger.error(
+                f"Errore non previsto durante il parsing del file SOG: {str(e)}"
+            )
+            raise ParsingError(f"Errore durante il parsing del file SOG: {str(e)}")
+
+    def _parse_sog_record_info(self, line: str) -> SogRecordInfo:
+        """
+        Estrae le informazioni di base da una riga del file SOG.
+
+        Args:
+            line: La riga del file SOG
+
+        Returns:
+            SogRecordInfo: Le informazioni estratte
+
+        Raises:
+            ValueError: Se la riga è malformata
+        """
+
+        try:
+            parser = parse_sog_record_info(line=line)
+            return parser
+        except Exception:
+            raise
+
 
 def parse_fab_record_info(line: str) -> FabRecordInfo:
     """
@@ -1011,4 +1133,53 @@ def parse_fab_record5_line(
         return FabbricatiRecord5(**record_data)
     except ValidationError as e:
         print(f"Errore nella creazione del record4: {str(e)}")
+        raise
+
+
+def parse_sog_record_info(line: str) -> SogRecordInfo:
+    """
+    Estrae le informazioni di base da una riga del file SOG.
+
+    Args:
+        line: La riga del file SOG
+
+    Returns:
+        SogRecordInfo: Le informazioni estratte
+
+    Raises:
+        ValueError: Se la riga è malformata
+    """
+
+    # Divide la linea nelle parti header e data
+    parts = line.split("|")
+    if len(parts) < 4:
+        raise ValueError(f"Formato riga non valido: {line}")
+
+    header = parts[:4]
+    data = parts[4:]
+
+    # Estrai i campi chiave dall'header
+    if len(header) < 4:
+        raise ValueError(f"Header troppo corto: {header}")
+
+    codice_amministrativo = header[0]
+    sezione = header[1]
+    identificativo_soggetto = header[2]
+    tipo_soggetto = header[3]
+
+    # Crea e restituisci l'oggetto FabRecordInfo
+    try:
+        return SogRecordInfo(
+            codice_amministrativo=codice_amministrativo,
+            sezione=sezione,
+            identificativo_soggetto=identificativo_soggetto,
+            tipo_soggetto=tipo_soggetto,
+            data=data,  # La parte dati dopo il tipo record
+            raw_line=line,  # Linea completa per riferimento
+            raw_tuple=parts,  # non tiene in considerazione la specifica
+            items_number=len(
+                parts
+            ),  # La lunghezza non tiene in considerazione la specifica
+        )
+    except ValidationError:
         raise

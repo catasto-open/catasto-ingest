@@ -120,6 +120,18 @@ def static_fab_record5_invalid_line():
     return "H501| |3675191|F|4|5|5|1234567890|"  # Partita iscrizione riserva deve essere massimo 7 caratteri
 
 
+@pytest.fixture
+def static_sog_private_person_record_valid_line():
+    """Ritorna un record SOG di tipo P valido da dati sintetici."""
+    return "H501| |7125464|P|BARTOLI|FRANCESCO|1|01091973|H501|BRTFNC73P01L117G||"  # noqa
+
+
+@pytest.fixture
+def static_sog_private_person_record_invalid_line():
+    """Ritorna un record SOG di tipo P non valido da dati sintetici."""
+    return "H5011| |7125464|P|BARTOLI|FRANCESCO|3|01091973|H501|BRTFNC73P01L117G||"  # sesso deve essere 1 o 2, luogo di nascita massimo 4 caratteri
+
+
 # --- Fixture per generazione di file fabbricati ---
 
 

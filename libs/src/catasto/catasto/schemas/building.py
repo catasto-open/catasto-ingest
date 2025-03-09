@@ -50,7 +50,9 @@ class BaseRecord(BaseModel):
     @field_validator("codice_amministrativo")
     @classmethod
     def check_codice_belfiore(cls, v):
-        if not v[1:].isdigit() or not v[0].isalpha():
+        if not (v[1:].isdigit() and len(v[1:]) == 3) or not (
+            v[0].isalpha() and len(v[0]) == 1
+        ):
             raise ValueError(
                 "codice amministrativo deve essere in formato belfiore, es. H501"
             )
@@ -784,7 +786,9 @@ class FabRecordInfo(BaseModel):
     @field_validator("codice_amministrativo")
     @classmethod
     def check_codice_belfiore(cls, v):
-        if not v[1:].isdigit() or not v[0].isalpha():
+        if not (v[1:].isdigit() and len(v[1:]) == 3) or not (
+            v[0].isalpha() and len(v[0]) == 1
+        ):
             raise ValueError(
                 "codice amministrativo deve essere in formato belfiore, es. H501"
             )
