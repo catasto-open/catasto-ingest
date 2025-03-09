@@ -20,7 +20,13 @@ from .schemas.building import (
 )
 from .schemas.carto import CartoHeaderModel, CartoObject, LandSheet
 from .schemas.census import Census
-from .schemas.subject import SogRecordInfo
+from .schemas.subject import (
+    SoggettiModel,
+    SoggettiRecordGiuridicPerson,
+    SoggettiRecordPrivatePerson,
+    Soggetto,
+    SogRecordInfo,
+)
 
 # Configurazione del logger
 logger = logging.getLogger(__name__)
@@ -635,10 +641,10 @@ class FileParserService(FileParser):
                         continue
 
                     # Crea il soggetto
-                    intestato = self._parse_sog_intestato(key, records)
+                    soggetto = self._parse_sog_intestato(key, records)
 
                     # Aggiungi il soggetto al census
-                    census.soggetti.add_soggetto(intestato)
+                    census.soggetti.add_soggetto(soggetto)
 
                 except Exception as e:
                     errors.append(f"Errore nel parsing del soggetto {key}: {str(e)}")
@@ -682,6 +688,94 @@ class FileParserService(FileParser):
             return parser
         except Exception:
             raise
+
+    def _parse_sog_intestato(self, key: tuple, records: Dict[str, str]) -> Soggetto:
+        """
+        Crea un oggetto Soggetto dal record estratto.
+
+        Args:
+            key: Tupla che identifica il soggetto
+            records: Dizionario del record per tipo
+
+        Returns:
+            Soggetto: L'oggetto soggetto creato
+
+        Raises:
+            ValueError: Se mancano i record obbligatori o se ci sono errori nei record
+        """
+
+        # Estrai i dati dalla chiave
+        (
+            codice_amministrativo,
+            sezione,
+            identificativo_soggetto,
+            tipo_soggetto,
+        ) = key
+
+        # Crea i record specifici
+        if "P" in records.keys():
+            record_p = self._parse_fab_record_p_line(records["P"])
+            soggetto = Soggetto(
+                codice_amministrativo=codice_amministrativo,
+                sezione=sezione,
+                identificativo_soggetto=identificativo_soggetto,
+                tipo_soggetto=tipo_soggetto,
+                record=record_p,
+            )
+        elif "G" in records.keys():
+            record_g = self._parse_fab_record_g_line(records["G"])
+            soggetto = Soggetto(
+                codice_amministrativo=codice_amministrativo,
+                sezione=sezione,
+                identificativo_soggetto=identificativo_soggetto,
+                tipo_soggetto=tipo_soggetto,
+                record=record_g,
+            )
+        else:
+            raise ValueError("Manca il record P o G")
+
+        # Crea e restituisci l'oggetto immobile
+        return soggetto
+
+    def _parse_sog_record_p_line(self, line: str) -> SoggettiRecordPrivatePerson:
+        """
+        Parsifica una riga di record SOG di tipo P.
+
+        Args:
+            line: La riga del record
+
+        Returns:
+            SoggettiRecordPrivatePerson: L'oggetto record creato
+
+        Raises:
+            ValueError: Se la riga è malformata
+            ValidationError: Se i dati non rispettano i vincoli del modello
+        """
+
+        record_info = parse_sog_record_info(line=line)
+        parser = parse_sog_record_p_line(record=record_info)
+
+        return parser
+
+    def _parse_sog_record_g_line(self, line: str) -> SoggettiRecordGiuridicPerson:
+        """
+        Parsifica una riga di record SOG di tipo G.
+
+        Args:
+            line: La riga del record
+
+        Returns:
+            SoggettiRecordGiuridicPerson: L'oggetto record creato
+
+        Raises:
+            ValueError: Se la riga è malformata
+            ValidationError: Se i dati non rispettano i vincoli del modello
+        """
+
+        record_info = parse_sog_record_info(line=line)
+        parser = parse_sog_record_g_line(record=record_info)
+
+        return parser
 
 
 def parse_fab_record_info(line: str) -> FabRecordInfo:
@@ -1183,3 +1277,107 @@ def parse_sog_record_info(line: str) -> SogRecordInfo:
         )
     except ValidationError:
         raise
+
+
+def parse_sog_record_p_line(
+    record: SogRecordInfo,
+) -> SoggettiRecordPrivatePerson:
+    """
+    Parsifica una riga di record SOG di tipo P.
+
+    Args:
+        record: La riga del record con modello SogRecordInfo
+
+    Returns:
+        SoggettiRecordPrivatePerson: L'oggetto record creato
+
+    Raises:
+        ValidationError: Se i dati non rispettano i vincoli del modello
+    """
+
+    # Crea un dizionario con i campi di base
+    record_data = {
+        "codice_amministrativo": record.codice_amministrativo,
+        "sezione": record.sezione,
+        "identificativo_soggetto": record.identificativo_soggetto,
+        "tipo_soggetto": record.tipo_soggetto,
+    }
+
+    # Mappa dei campi in base alla posizione nei dati suddivisi
+
+    field_mapping = [
+        "cognome",
+        "nome",
+        "sesso",
+        "data_di_nascita",
+        "luogo_di_nascita",
+        "codice_fiscale",
+        "indicazioni_supplementari",
+    ]
+
+    # Popola il dizionario con i valori dai campi
+    if len(record.data) % len(field_mapping) > 0:
+        record.data = record.data[
+            : len(record.data) - (len(record.data) % len(field_mapping))
+        ]  # elimino l'ultimo elemento non rilevante
+    for i, field_name in enumerate(field_mapping):
+        if i <= len(record.data):
+            record_data[field_name] = record.data[i]
+
+    # Validazione con Pydantic: questo solleverà ValidationError se i dati non rispettano i vincoli
+    try:
+        record_p = SoggettiRecordPrivatePerson(**record_data)
+    except ValidationError:
+        raise
+
+    return record_p
+
+
+def parse_sog_record_g_line(
+    record: SogRecordInfo,
+) -> SoggettiRecordGiuridicPerson:
+    """
+    Parsifica una riga di record SOG di tipo G.
+
+    Args:
+        record: La riga del record con modello SogRecordInfo
+
+    Returns:
+        SoggettiRecordGiuridicPerson: L'oggetto record creato
+
+    Raises:
+        ValidationError: Se i dati non rispettano i vincoli del modello
+    """
+
+    # Crea un dizionario con i campi di base
+    record_data = {
+        "codice_amministrativo": record.codice_amministrativo,
+        "sezione": record.sezione,
+        "identificativo_soggetto": record.identificativo_soggetto,
+        "tipo_soggetto": record.tipo_soggetto,
+    }
+
+    # Mappa dei campi in base alla posizione nei dati suddivisi
+
+    field_mapping = [
+        "denominazione",
+        "sede",
+        "codice_fiscale",
+    ]
+
+    # Popola il dizionario con i valori dai campi
+    if len(record.data) % len(field_mapping) > 0:
+        record.data = record.data[
+            : len(record.data) - (len(record.data) % len(field_mapping))
+        ]  # elimino l'ultimo elemento non rilevante
+    for i, field_name in enumerate(field_mapping):
+        if i <= len(record.data):
+            record_data[field_name] = record.data[i]
+
+    # Validazione con Pydantic: questo solleverà ValidationError se i dati non rispettano i vincoli
+    try:
+        record_g = SoggettiRecordGiuridicPerson(**record_data)
+    except ValidationError:
+        raise
+
+    return record_g

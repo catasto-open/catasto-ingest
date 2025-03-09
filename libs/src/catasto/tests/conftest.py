@@ -123,13 +123,25 @@ def static_fab_record5_invalid_line():
 @pytest.fixture
 def static_sog_private_person_record_valid_line():
     """Ritorna un record SOG di tipo P valido da dati sintetici."""
-    return "H501| |7125464|P|BARTOLI|FRANCESCO|1|01091973|H501|BRTFNC73P01L117G||"  # noqa
+    return "H501| |7125464|P|ROSSI|MARIO|1|01091973|H501|MRIRSS73P01LH501||"  # noqa
 
 
 @pytest.fixture
 def static_sog_private_person_record_invalid_line():
     """Ritorna un record SOG di tipo P non valido da dati sintetici."""
-    return "H5011| |7125464|P|BARTOLI|FRANCESCO|3|01091973|H501|BRTFNC73P01L117G||"  # sesso deve essere 1 o 2, luogo di nascita massimo 4 caratteri
+    return "H5011| |7125464|P|ROSSI|MARIO|3|01091973|H501|MRIRSS73P01LH501||"  # sesso deve essere 1 o 2, luogo di nascita massimo 4 caratteri
+
+
+@pytest.fixture
+def static_sog_giuridic_person_record_valid_line():
+    """Ritorna un record SOG di tipo P valido da dati sintetici."""
+    return ""  # noqa
+
+
+@pytest.fixture
+def static_sog_giuridic_person_record_invalid_line():
+    """Ritorna un record SOG di tipo P non valido da dati sintetici."""
+    return ""  # sesso deve essere 1 o 2, luogo di nascita massimo 4 caratteri
 
 
 # --- Fixture per generazione di file fabbricati ---
