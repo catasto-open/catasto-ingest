@@ -6,11 +6,8 @@ import pytest
 from catasto.parser import FileParserService
 from catasto.reader import LocalFileReaderService
 
-from .fab_factory import (
-    FabbricatiImmobileFactory,
-    FabbricatiRecord1Factory,
-    FabbricatiTestGenerator,
-)
+from .fab_factory import FabbricatiRecord1Factory, FabbricatiTestGenerator
+from .sog_factory import SoggettiTestGenerator
 
 directory = pathlib.Path("tests/data/")
 
@@ -134,14 +131,14 @@ def static_sog_private_person_record_invalid_line():
 
 @pytest.fixture
 def static_sog_giuridic_person_record_valid_line():
-    """Ritorna un record SOG di tipo P valido da dati sintetici."""
-    return ""  # noqa
+    """Ritorna un record SOG di tipo G valido da dati sintetici."""
+    return "H501| |8363|G|COMUNE DI ROMA|H501|02437850856|"  # noqa
 
 
 @pytest.fixture
 def static_sog_giuridic_person_record_invalid_line():
-    """Ritorna un record SOG di tipo P non valido da dati sintetici."""
-    return ""  # sesso deve essere 1 o 2, luogo di nascita massimo 4 caratteri
+    """Ritorna un record SOG di tipo G non valido da dati sintetici."""
+    return "H501| |8363|G|COMUNE DI ROMA|H501|0243785085699|"  # partita IVA deve essere massimo 11 caratteri
 
 
 # --- Fixture per generazione di file fabbricati ---
@@ -206,6 +203,52 @@ def custom_fab_file():
 
 
 @pytest.fixture
-def immobile_factory():
-    """Fixture che restituisce una factory di immobili per uso personalizzato nei test."""
-    return FabbricatiImmobileFactory
+def random_soggetto_completo():
+    """Genera un set completo di record per un soggetto usando polyfactory."""
+    return SoggettiTestGenerator.genera_soggetto_completo()
+
+
+@pytest.fixture
+def temp_sog_file():
+    """Crea un file SOG temporaneo con dati casuali generati da polyfactory."""
+    with tempfile.NamedTemporaryFile(suffix=".SOG", delete=False) as f:
+        records = SoggettiTestGenerator.genera_file_soggetti(num_soggetti=3)
+        content = SoggettiTestGenerator.genera_file_content(records)
+        f.write(content.encode("utf-8"))
+        filepath = f.name
+
+    # Restituisce il percorso del file
+    yield filepath
+
+    # Pulisce dopo il test
+    os.unlink(filepath)
+
+
+@pytest.fixture
+def custom_sog_file():
+    """Crea un file SOG con contenuto personalizzato usando polyfactory."""
+
+    def _create_custom_file(num_soggetti=3, con_errori=False):
+        with tempfile.NamedTemporaryFile(suffix=".SOG", delete=False) as f:
+            records = SoggettiTestGenerator.genera_file_soggetti(
+                num_soggetti=num_soggetti
+            )
+
+            # Se richiesto, introduci errori
+            if con_errori:
+                # Modifica il contenuto direttamente nel file invece di modificare i record
+                # Questo permette di mantenere la validazione Pydantic ma avere un file con errori
+                content = SoggettiTestGenerator.genera_file_content(records)
+                # Sostituisce il tipo di soggetto P o G con un valore non valido M
+                content = content.replace("|P|", "|M|").replace("|G|", "|M|")
+                f.write(content.encode("utf-8"))
+            else:
+                content = SoggettiTestGenerator.genera_file_content(records)
+                f.write(content.encode("utf-8"))
+
+            filepath = f.name
+
+        return filepath
+
+    # Restituisce la funzione factory
+    return _create_custom_file

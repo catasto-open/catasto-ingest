@@ -110,9 +110,7 @@ class SoggettiRecordPrivatePerson(BaseRecord):
 class SoggettiRecordGiuridicPerson(BaseRecord):
     """Record di tipo G: Soggetto persona giuridica dell'unità immobiliare."""
 
-    tipo_soggetto: Annotated[TipoSoggettoEnum, Field(..., alias="TIPO SOGGETTO")] = (
-        TipoSoggettoEnum.PERSONA_GIURIDICA
-    )
+    tipo_soggetto: Annotated[TipoSoggettoEnum, Field(..., alias="TIPO SOGGETTO")]
     denominazione: Annotated[
         str, Field(min_length=1, max_length=150, alias="DEONOMINAZIONE")
     ]
@@ -124,9 +122,9 @@ class SoggettiRecordGiuridicPerson(BaseRecord):
     @field_validator("tipo_soggetto")
     @classmethod
     def check_tipo_giuridico(cls, v):
-        if v.value != "G":
+        if v != "G":
             raise ValueError("tipo soggetto deve essere G")
-        return v.value
+        return v
 
 
 class Soggetto(BaseModel):

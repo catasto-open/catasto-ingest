@@ -613,7 +613,7 @@ class FileParserService(FileParser):
                         record_groups[key] = {}
 
                     # Aggiungi il record al dizionario del soggetto
-                    record_groups[key][record_info.tipo_record] = record_info.raw_line
+                    record_groups[key][record_info.tipo_soggetto] = record_info.raw_line
 
                 except Exception as e:
                     # Accumula l'errore
@@ -627,16 +627,17 @@ class FileParserService(FileParser):
             # Processa ogni gruppo di record per creare soggetti
             for key, records in record_groups.items():
                 try:
-                    # Verifica che ci siano i record obbligatori
-                    if "P" not in records.keys():
+                    # Verifica che ci sia almeno uno dei record obbligatori (P o G)
+                    if "P" not in records.keys() and "G" not in records.keys():
                         errors.append(
-                            f"Soggetto {key}: manca il record di tipo P (obbligatorio)"
+                            f"Soggetto {key}: manca il record di tipo P o G (obbligatorio)"
                         )
                         continue
 
-                    if "G" not in records.keys():
+                    # Verifica che non ci siano entrambi i tipi di record (P e G)
+                    if "P" in records.keys() and "G" in records.keys():
                         errors.append(
-                            f"Soggetto {key}: manca il record di tipo G (obbligatorio)"
+                            f"Soggetto {key}: non può avere sia il record di tipo P che di tipo G"
                         )
                         continue
 
@@ -714,7 +715,7 @@ class FileParserService(FileParser):
 
         # Crea i record specifici
         if "P" in records.keys():
-            record_p = self._parse_fab_record_p_line(records["P"])
+            record_p = self._parse_sog_record_p_line(records["P"])
             soggetto = Soggetto(
                 codice_amministrativo=codice_amministrativo,
                 sezione=sezione,
@@ -723,7 +724,7 @@ class FileParserService(FileParser):
                 record=record_p,
             )
         elif "G" in records.keys():
-            record_g = self._parse_fab_record_g_line(records["G"])
+            record_g = self._parse_sog_record_g_line(records["G"])
             soggetto = Soggetto(
                 codice_amministrativo=codice_amministrativo,
                 sezione=sezione,
