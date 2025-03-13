@@ -126,50 +126,53 @@ class FabbricatiRecord1(BaseRecord):
 
     # Dati relativi all'atto che ha generato la situazione oggettiva
     data_efficacia_iniziale: Annotated[
-        str, Field(max_length=8, alias="DATA DI EFFICACIA")
+        str, Field(max_length=8, alias="DATA DI EFFICACIA INIZIALE")
     ]
     data_registrazione_atti_iniziale: Annotated[
-        str, Field(min_length=0, max_length=8, alias="DATA DI REGISTRAZIONE IN ATTI")
+        str,
+        Field(
+            min_length=0, max_length=8, alias="DATA DI REGISTRAZIONE IN ATTI INIZIALE"
+        ),
     ]
     tipo_nota_iniziale: Annotated[
-        str, Field(min_length=0, max_length=1, alias="TIPO NOTA")
+        str, Field(min_length=0, max_length=1, alias="TIPO NOTA INIZIALE")
     ]
     numero_nota_iniziale: Annotated[
-        str, Field(min_length=0, max_length=6, alias="NUMERO NOTA")
+        str, Field(min_length=0, max_length=6, alias="NUMERO NOTA INIZIALE")
     ]
     progressivo_nota_iniziale: Annotated[
-        str, Field(min_length=0, max_length=3, alias="PROGRESSIVO NOTA")
+        str, Field(min_length=0, max_length=3, alias="PROGRESSIVO NOTA INIZIALE")
     ]
     anno_nota_iniziale: Annotated[
-        str, Field(min_length=4, max_length=4, alias="ANNO NOTA")
+        str, Field(min_length=4, max_length=4, alias="ANNO NOTA INIZIALE")
     ]
 
     # Dati relativi all'atto che ha concluso la situazione oggettiva
     data_efficacia_finale: Annotated[
         OptionalStr,
-        Field(default=None, max_length=8, alias="DATA DI EFFICACIA"),
+        Field(default=None, max_length=8, alias="DATA DI EFFICACIA FINALE"),
     ]
     data_registrazione_atti_finale: Annotated[
         OptionalStr,
         Field(
             default=None,
             max_length=8,
-            alias="DATA DI REGISTRAZIONE IN ATTI",
+            alias="DATA DI REGISTRAZIONE IN ATTI FINALE",
         ),
     ]
     tipo_nota_finale: Annotated[
-        OptionalStr, Field(default=None, max_length=1, alias="TIPO NOTA")
+        OptionalStr, Field(default=None, max_length=1, alias="TIPO NOTA FINALE")
     ]
     numero_nota_finale: Annotated[
         OptionalStr,
-        Field(default=None, max_length=6, alias="NUMERO NOTA"),
+        Field(default=None, max_length=6, alias="NUMERO NOTA FINALE"),
     ]
     progressivo_nota_finale: Annotated[
         OptionalStr,
-        Field(default=None, max_length=3, alias="PROGRESSIVO NOTA"),
+        Field(default=None, max_length=3, alias="PROGRESSIVO NOTA FINALE"),
     ]
     anno_nota_finale: Annotated[
-        OptionalStr, Field(default=None, max_length=4, alias="ANNO NOTA")
+        OptionalStr, Field(default=None, max_length=4, alias="ANNO NOTA FINALE")
     ]
 
     # Altri campi
