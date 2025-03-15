@@ -20,6 +20,14 @@ from .schemas.building import (
 )
 from .schemas.carto import CartoHeaderModel, CartoObject, LandSheet
 from .schemas.census import Census
+from .schemas.entitlement import (
+    TipoImmobileEnum,
+    TipoRegimeEnum,
+    TipoSoggettoEnum,
+    Titolarita,
+    TitolaritaModel,
+    TitRecordInfo,
+)
 from .schemas.subject import (
     SoggettiModel,
     SoggettiRecordGiuridicPerson,
@@ -778,6 +786,135 @@ class FileParserService(FileParser):
 
         return parser
 
+    def _parse_tit_file(self, census: Census, content: str) -> None:
+        """
+        Parsifica un file .TIT e aggiorna l'oggetto Census con i dati delle titolarità.
+
+        Args:
+            census: L'oggetto Census da aggiornare
+            content: Il contenuto del file TIT
+
+        Raises:
+            ValueError: Se il file è vuoto o malformato
+            ValidationError: Se i dati non rispettano i vincoli dei modelli
+            ParsingError: Se ci sono errori durante il parsing
+        """
+        if not content:
+            raise ValueError("Contenuto del file TIT vuoto o non valido")
+        # Inizializza il modello TitolaritaModel se non esiste già
+        if not census.titolarita:
+            census.titolarita = TitolaritaModel()
+
+        # Errori accumulati durante il parsing
+        errors = []
+
+        try:
+            # Organizziamo i record per titolarità
+            record_groups = {}
+            # Processa ogni linea
+            for line_num, line in enumerate(content.splitlines(), 1):
+                if not line:
+                    continue
+
+                try:
+                    # Estrai le informazioni di base
+                    record_info = self._parse_tit_record_info(line)
+                    key = (
+                        record_info.codice_amministrativo,
+                        record_info.sezione,
+                        record_info.identificativo_soggetto,
+                        record_info.tipo_soggetto,
+                        record_info.identificativo_immobile,
+                        record_info.tipo_immobile,
+                    )
+
+                    # Se è una nuova titolarità, inizializza il dizionario
+                    if key not in record_groups:
+                        record_groups[key] = {}
+
+                    # Aggiungi il record al dizionario della titolarità
+                    record_groups[key] = record_info.raw_line
+
+                except Exception as e:
+                    # Accumula l'errore
+                    errors.append(f"Errore alla riga {line_num}: {str(e)}")
+
+            # Solleva un'eccezione se ci sono stati errori durante il parsing delle righe
+            if errors:
+                print(errors)
+                raise ParsingError("Errori nel parsing del file TIT", errors)
+
+            # Processa ogni gruppo di record per creare titolarità
+            for key, record_line in record_groups.items():
+                try:
+                    # Crea la titolarità
+                    titolarita = self._parse_tit_record_line(record_line)
+
+                    # Aggiungi la titolarità al census
+                    census.titolarita.add_titolarita(titolarita)
+
+                except Exception as e:
+                    errors.append(
+                        f"Errore nel parsing della titolarità {key}: {str(e)}"
+                    )
+
+            # Solleva un'eccezione se ci sono stati errori nel parsing delle titolarità
+            if errors:
+                raise ParsingError("Errori nel parsing del file TIT", errors)
+
+            # Se non ci sono titolarità, potrebbe essere un problema
+            if not census.titolarita.titolarita:
+                logger.warning("Nessuna titolarità trovata nel file TIT")
+
+        except ParsingError:
+            # Rilanciamo l'eccezione ParsingError senza modificarla
+            logger.error("Errori durante il parsing del file TIT")
+            raise
+
+        except Exception as e:
+            # Per altre eccezioni, le convertiamo in ParsingError
+            logger.error(
+                f"Errore non previsto durante il parsing del file TIT: {str(e)}"
+            )
+            raise ParsingError(f"Errore durante il parsing del file TIT: {str(e)}")
+
+    def _parse_tit_record_info(self, line: str) -> TitRecordInfo:
+        """
+        Estrae le informazioni di base da una riga del file TIT.
+
+        Args:
+            line: La riga del file TIT
+
+        Returns:
+            TitRecordInfo: Le informazioni estratte
+
+        Raises:
+            ValueError: Se la riga è malformata
+        """
+        try:
+            parser = parse_tit_record_info(line=line)
+            return parser
+        except Exception:
+            raise
+
+    def _parse_tit_record_line(self, line: str) -> Titolarita:
+        """
+        Parsifica una riga di record TIT.
+
+        Args:
+            line: La riga del record
+
+        Returns:
+            Titolarita: L'oggetto titolarità creato
+
+        Raises:
+            ValueError: Se la riga è malformata
+            ValidationError: Se i dati non rispettano i vincoli del modello
+        """
+        record_info = parse_tit_record_info(line=line)
+        parser = parse_tit_record_line(record=record_info)
+        return parser
+
 
 def parse_fab_record_info(line: str) -> FabRecordInfo:
     """
@@ -1382,3 +1519,128 @@ def parse_sog_record_g_line(
         raise
 
     return record_g
+
+
+def parse_tit_record_info(line: str) -> TitRecordInfo:
+    """
+    Estrae le informazioni di base da una riga del file TIT.
+
+    Args:
+        line: La riga del file TIT
+
+    Returns:
+        TitRecordInfo: Le informazioni estratte
+
+    Raises:
+        ValueError: Se la riga è malformata
+    """
+    # Divide la linea nelle parti header e data
+    parts = line.split("|")
+    if len(parts) < 6:
+        raise ValueError(f"Formato riga non valido: {line}")
+
+    header = parts[:6]
+    data = parts[6:]
+
+    # Estrai i campi chiave dall'header
+    if len(header) < 6:
+        raise ValueError(f"Header troppo corto: {header}")
+
+    codice_amministrativo = header[0]
+    sezione = header[1]
+    identificativo_soggetto = header[2]
+    tipo_soggetto = header[3]
+    identificativo_immobile = header[4]
+    tipo_immobile = header[5]
+
+    # Crea e restituisci l'oggetto TitRecordInfo
+    try:
+        return TitRecordInfo(
+            codice_amministrativo=codice_amministrativo,
+            sezione=sezione,
+            identificativo_soggetto=identificativo_soggetto,
+            tipo_soggetto=tipo_soggetto,
+            identificativo_immobile=identificativo_immobile,
+            tipo_immobile=tipo_immobile,
+            data=data,  # La parte dati dopo i campi base
+            raw_line=line,  # Linea completa per riferimento
+            raw_tuple=parts,  # Tupla completa degli elementi
+            items_number=len(parts),  # Numero elementi nel record
+        )
+    except ValidationError:
+        raise
+
+
+def parse_tit_record_line(record: TitRecordInfo) -> Titolarita:
+    """
+    Parsifica una riga di record TIT.
+
+    Args:
+        record: Le informazioni di base del record
+
+    Returns:
+        Titolarita: L'oggetto titolarità creato
+
+    Raises:
+        ValidationError: Se i dati non rispettano i vincoli del modello
+    """
+    # Crea un dizionario con i campi di base
+    record_data = {
+        "codice_amministrativo": record.codice_amministrativo,
+        "sezione": record.sezione,
+        "identificativo_soggetto": record.identificativo_soggetto,
+        "tipo_soggetto": record.tipo_soggetto,
+        "identificativo_immobile": record.identificativo_immobile,
+        "tipo_immobile": record.tipo_immobile,
+    }
+
+    # Mappa dei campi in base alla posizione nei dati suddivisi
+    field_mapping = [
+        "codice_diritto",
+        "titolo_non_codificato",
+        "quota_numeratore",
+        "quota_denominatore",
+        "regime",
+        "soggetto_di_riferimento",
+        "data_di_validita_iniziale",
+        "tipo_nota_iniziale",
+        "numero_nota_iniziale",
+        "progressivo_nota_iniziale",
+        "anno_nota_iniziale",
+        "data_registrazione_atti_iniziale",
+        "partita",
+        "data_di_validita_finale",
+        "tipo_nota_finale",
+        "numero_nota_finale",
+        "progressivo_nota_finale",
+        "anno_nota_finale",
+        "data_registrazione_atti_finale",
+        "identificativo_mutazione_iniziale",
+        "identificativo_mutazione_finale",
+        "identificativo_titolarita",
+        "codice_causale_atto_generante",
+        "descrizione_atto_generante",
+        "codice_causale_atto_conclusivo",
+        "descrizione_atto_conclusivo",
+    ]
+
+    # Popola il dizionario con i valori dai campi
+    for i, field_name in enumerate(field_mapping):
+        if i < len(record.data):
+            # Converti i campi per enum
+            if field_name == "tipo_soggetto":
+                record_data[field_name] = TipoSoggettoEnum(record.data[i])
+            elif field_name == "tipo_immobile":
+                record_data[field_name] = TipoImmobileEnum(record.data[i])
+            elif field_name == "regime" and record.data[i]:
+                record_data[field_name] = TipoRegimeEnum(record.data[i])
+            else:
+                record_data[field_name] = record.data[i]
+
+    # Validazione con Pydantic: questo solleverà ValidationError se i dati non rispettano i vincoli
+    try:
+        record_tit = Titolarita(**record_data)
+    except ValidationError:
+        raise
+
+    return record_tit

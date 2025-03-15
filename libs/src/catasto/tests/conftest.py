@@ -8,6 +8,7 @@ from catasto.reader import LocalFileReaderService
 
 from .fab_factory import FabbricatiRecord1Factory, FabbricatiTestGenerator
 from .sog_factory import SoggettiTestGenerator
+from .tit_factory import TitolaritaTestGenerator
 
 directory = pathlib.Path("tests/data/")
 
@@ -55,6 +56,9 @@ def cxf_content_generator():
     _file = directory / "H501D076700.CTF"
     content = _file.read_text()
     return iter(content.splitlines())
+
+
+# --- Fixture per i file FAB ---
 
 
 @pytest.fixture
@@ -117,6 +121,9 @@ def static_fab_record5_invalid_line():
     return "H501| |3675191|F|4|5|5|1234567890|"  # Partita iscrizione riserva deve essere massimo 7 caratteri
 
 
+# --- Fixture per i file SOG ---
+
+
 @pytest.fixture
 def static_sog_private_person_record_valid_line():
     """Ritorna un record SOG di tipo P valido da dati sintetici."""
@@ -141,7 +148,22 @@ def static_sog_giuridic_person_record_invalid_line():
     return "H501| |8363|G|COMUNE DI ROMA|H501|0243785085699|"  # partita IVA deve essere massimo 11 caratteri
 
 
-# --- Fixture per generazione di file fabbricati ---
+# --- Fixture per i file TIT ---
+
+
+@pytest.fixture
+def static_tit_record_valid_line():
+    """Ritorna un record TIT valido da dati sintetici."""
+    return "H501| |54898|P|1437626|F|10||1|1| ||12112003|N|053614|001|2010|25082010||04062024|R|006985|001|2025|30012025|9167994|433188217|28099632|SEN|DIVISIONE|SEL|MARIO ROSSI|"  # noqa
+
+
+@pytest.fixture
+def static_tit_record_invalid_line():
+    """Ritorna un record TIT non valido da dati sintetici."""
+    return "H501| |54898|Y|1437626|X|10||1|1| ||12112003|N|053614|001|2010|25082010||04062024|R|006985|001|2025|30012025|9167994|433188217|28099632|SEN|DIVISIONE|SEL|MARIO ROSSI|"  # tipo_soggetto e tipo_immobile non validi
+
+
+# --- Fixture per generazione di file ---
 
 
 @pytest.fixture
@@ -244,6 +266,58 @@ def custom_sog_file():
                 f.write(content.encode("utf-8"))
             else:
                 content = SoggettiTestGenerator.genera_file_content(records)
+                f.write(content.encode("utf-8"))
+
+            filepath = f.name
+
+        return filepath
+
+    # Restituisce la funzione factory
+    return _create_custom_file
+
+
+@pytest.fixture
+def random_titolarita():
+    """Genera una titolarità casuale valida usando polyfactory."""
+    return TitolaritaTestGenerator.genera_titolarita()
+
+
+@pytest.fixture
+def temp_tit_file():
+    """Crea un file TIT temporaneo con dati casuali generati da polyfactory."""
+    with tempfile.NamedTemporaryFile(suffix=".TIT", delete=False) as f:
+        records = TitolaritaTestGenerator.genera_file_titolarita(num_titolarita=3)
+        content = TitolaritaTestGenerator.genera_file_content(records)
+        f.write(content.encode("utf-8"))
+        filepath = f.name
+
+    # Restituisce il percorso del file
+    yield filepath
+
+    # Pulisce dopo il test
+    os.unlink(filepath)
+
+
+@pytest.fixture
+def custom_tit_file():
+    """Crea un file TIT con contenuto personalizzato usando polyfactory."""
+
+    def _create_custom_file(num_titolarita=3, con_errori=False):
+        with tempfile.NamedTemporaryFile(suffix=".TIT", delete=False) as f:
+            records = TitolaritaTestGenerator.genera_file_titolarita(
+                num_titolarita=num_titolarita
+            )
+
+            # Se richiesto, introduci errori
+            if con_errori:
+                # Modifica il contenuto direttamente nel file invece di modificare i record
+                # Questo permette di mantenere la validazione Pydantic ma avere un file con errori
+                content = TitolaritaTestGenerator.genera_file_content(records)
+                # Sostituisci il regime con un valore non valido
+                content = content.replace("|C|", "|Z|").replace("|P|", "|Z|")
+                f.write(content.encode("utf-8"))
+            else:
+                content = TitolaritaTestGenerator.genera_file_content(records)
                 f.write(content.encode("utf-8"))
 
             filepath = f.name
