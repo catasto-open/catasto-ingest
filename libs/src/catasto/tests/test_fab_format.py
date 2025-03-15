@@ -97,6 +97,42 @@ class TestFabbricatiRecord1:
         assert parser.descrizione_atto_conclusivo == ""
         assert parser.flag_classamento == "1"
 
+    def test_parse_record1_avoiding_list_error_with_valid_line(
+        self, static_fab_record1_euro_value_no_decimals_valid_line
+    ):
+        "Verifica che una linea con un record1 venga interpretata correttamente e non generi un errore."
+
+        fab_record_info = parse_fab_record_info(
+            static_fab_record1_euro_value_no_decimals_valid_line
+        )
+        parser = parse_fab_record1_line(fab_record_info)
+
+        assert parser.codice_amministrativo == "H501"
+        assert parser.sezione == " "
+        assert parser.identificativo_immobile == "238614396"
+        assert parser.tipo_immobile == "F"
+        assert parser.progressivo == "2"
+        assert parser.tipo_record == "1"
+
+        assert parser.rendita_euro == "42787"
+
+    def test_parse_record1_avoiding_dates_error_with_valid_line(
+        self, static_fab_record1_with_anomaly_dates_valid_line
+    ):
+        "Verifica che una linea con un record1 e date anormali venga interpretata correttamente."
+
+        fab_record_info = parse_fab_record_info(
+            static_fab_record1_with_anomaly_dates_valid_line
+        )
+        parser = parse_fab_record1_line(fab_record_info)
+
+        assert parser.codice_amministrativo == "H501"
+        assert parser.sezione == " "
+        assert parser.identificativo_immobile == "1493922"
+        assert parser.tipo_immobile == "F"
+        assert parser.progressivo == "5"
+        assert parser.tipo_record == "1"
+
     def test_parse_record1_invalid_line(self, static_fab_record1_invalid_line):
         "Verifica che una linea con un record1 venga interpretata correttamente."
 

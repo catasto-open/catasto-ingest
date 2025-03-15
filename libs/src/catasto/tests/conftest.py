@@ -116,6 +116,18 @@ def static_fab_record5_valid_line():
 
 
 @pytest.fixture
+def static_fab_record1_euro_value_no_decimals_valid_line():
+    """Ritorna un record FAB di tipo 1 valido con valore euro senza decimali."""
+    return "H501| |238614396|F|2|1|002|D08|||||42787||||||2-3|4|T-1||31012025|31012025|V|503906|001|2025||||||||Classamento e rendita rettificati|434172058||||VCL|VARIAZIONE DI CLASSAMENTO|||4|"
+
+
+@pytest.fixture
+def static_fab_record1_with_anomaly_dates_valid_line():
+    """Ritorna un record FAB di tipo 1 valido con date anomale."""
+    return "H501| |1493922|F|5|1|005|A03|03|5|98|1825000|942,53|||F|3||1||||27012025|27012025|V|044122|001|2025|11031974|27012025|V|017274|001|1974||CANCELLAZIONE PLANIMETRIA - protocollo n.RM0467277-|341243038|341249398|||VAR|AGGIORNAMENTO PLANIMETRICO|VAR|in sostituzione prot.26901 del 04/03/1970||"
+
+
+@pytest.fixture
 def static_fab_record5_invalid_line():
     """Ritorna un record FAB di tipo 5 valido da dati sintetici."""
     return "H501| |3675191|F|4|5|5|1234567890|"  # Partita iscrizione riserva deve essere massimo 7 caratteri

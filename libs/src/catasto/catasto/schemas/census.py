@@ -17,13 +17,13 @@ class CensusFabbricatiFileType(CensusFileType):
 
     @field_validator("filetype")
     def validate_filetype(cls, val):
-        if not val == CensusTypeEnum.FAB:
+        if not val.upper() == CensusTypeEnum.FAB:
             raise ValueError("The type is not FABBRICATI")
         return val.value
 
     @field_validator("extension")
     def validate_extension(cls, val):
-        if not val == CensusTypeEnum.FAB.name:
+        if not val.upper() == CensusTypeEnum.FAB.name:
             raise ValueError("The extension is not valid for FABBRICATI")
         return val.value
 

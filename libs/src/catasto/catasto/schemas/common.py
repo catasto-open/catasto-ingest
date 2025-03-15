@@ -47,7 +47,7 @@ class ReaderFile(BaseModel):
 
     @field_validator("filetype")
     def validate_filetype(cls, val):
-        if val.replace(".", "") not in [
+        if val.upper().replace(".", "") not in [
             CensusTypeEnum.FAB.name,
             CensusTypeEnum.SOG.name,
             CensusTypeEnum.TIT.name,

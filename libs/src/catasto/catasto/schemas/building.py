@@ -2,7 +2,7 @@ import re
 from datetime import datetime
 from typing import Annotated, List, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .common import CommonBase, CommonBaseRecord, OptionalStr
 
@@ -81,11 +81,11 @@ class FabbricatiRecord1(BaseRecord):
     ]
 
     # Dati relativi al classamento
-    zona: Annotated[str, Field(min_length=1, max_length=3, alias="ZONA")]
-    categoria: Annotated[str, Field(min_length=1, max_length=3, alias="CATEGORIA")]
-    classe: Annotated[str, Field(min_length=2, max_length=2, alias="CLASSE")]
-    consistenza: Annotated[str, Field(min_length=1, max_length=7, alias="CONSISTENZA")]
-    superficie: Annotated[str, Field(min_length=1, max_length=5, alias="SUPERFICIE")]
+    zona: Annotated[str, Field(max_length=3, alias="ZONA")]
+    categoria: Annotated[str, Field(max_length=3, alias="CATEGORIA")]
+    classe: Annotated[str, Field(max_length=2, alias="CLASSE")]
+    consistenza: Annotated[str, Field(max_length=7, alias="CONSISTENZA")]
+    superficie: Annotated[str, Field(max_length=5, alias="SUPERFICIE")]
     rendita_lire: Annotated[
         OptionalStr,
         Field(default=None, min_length=0, max_length=15, alias="RENDITA-LIRE"),
@@ -301,9 +301,9 @@ class FabbricatiRecord1(BaseRecord):
     @field_validator("flag_classamento")
     @classmethod
     def validate_flag_classamento(cls, v):
-        if v is None:
+        if not v:
             return v
-        valid_flags = ["1", "2", "3", "4", "5", " "]
+        valid_flags = ["0", "1", "2", "3", "4", "5", " "]
         if v not in valid_flags:
             raise ValueError(
                 f"Flag classamento non valido. Deve essere uno tra {valid_flags}"
@@ -313,80 +313,88 @@ class FabbricatiRecord1(BaseRecord):
     @field_validator("categoria")
     @classmethod
     def validate_categoria(cls, v):
+        if not v:
+            return v
         # Verificare che la categoria sia valida secondo le specifiche del catasto
-        if not re.match(r"^[ABC][0-9]{1,2}$", v):
+        if not re.match(r"^[ABCDEF][0-9]{1,2}$", v):
             raise ValueError(
-                "Categoria non valida. Deve iniziare con A, B o C seguito da numeri"
+                "Categoria non valida. Deve iniziare con A, B, C, D, E o F seguito da numeri"
             )
         return v
 
-    @field_validator("consistenza")
-    @classmethod
-    def validate_consistenza(cls, v, info):
-        # Ottenere il valore del campo 'categoria' dai dati di input
-        data = info.data
-        categoria = data.get("categoria", "")
-        if not categoria:
-            return v
+    # @field_validator("consistenza")
+    # @classmethod
+    # def validate_consistenza(cls, v, info):
+    #     # Ottenere il valore del campo 'categoria' dai dati di input
+    #     data = info.data
+    #     categoria = data.get("categoria", "")
+    #     if not categoria:
+    #         return v
 
-        # La consistenza dipende dalla prima lettera della categoria
-        if categoria.startswith("A"):
-            # Deve essere in vani (ultimo carattere 0 o 5)
-            if v[-1] not in ["0", "5"]:
-                raise ValueError(
-                    "Per categorie A, l'ultimo carattere della consistenza deve essere 0 o 5"
-                )
-        elif categoria.startswith("B"):
-            # Deve essere in metri cubi
-            if not v.replace(".", "").isdigit():
-                raise ValueError(
-                    "Per categorie B, la consistenza deve essere numerica (metri cubi)"
-                )
-        elif categoria.startswith("C"):
-            # Deve essere in metri quadrati
-            if not v.replace(".", "").isdigit():
-                raise ValueError(
-                    "Per categorie C, la consistenza deve essere numerica (metri quadrati)"
-                )
-        return v
+    #     # La consistenza dipende dalla prima lettera della categoria
+    #     if categoria.startswith("A"):
+    #         # Deve essere in vani (ultimo carattere 0 o 5 da specifica)
+    #         if v[-1] not in [
+    #             "0",
+    #             "5",
+    #         ]:  # ulteriori valori aggiunti da errori su file reali
+    #             raise ValueError(
+    #                 "Per categorie A, l'ultimo carattere della consistenza deve essere 0 o 5"
+    #             )
+    #     elif categoria.startswith("B"):
+    #         # Deve essere in metri cubi
+    #         if not v.replace(".", "").isdigit():
+    #             raise ValueError(
+    #                 "Per categorie B, la consistenza deve essere numerica (metri cubi)"
+    #             )
+    #     elif categoria.startswith("C"):
+    #         # Deve essere in metri quadrati
+    #         if not v.replace(".", "").isdigit():
+    #             raise ValueError(
+    #                 "Per categorie C, la consistenza deve essere numerica (metri quadrati)"
+    #             )
+    #     return v
 
     @field_validator("rendita_euro")
     @classmethod
     def validate_rendita_euro(cls, v):
-        # Gli ultimi 2 caratteri sono decimali
-        # if not re.match(r"^\d+\.\d{2}$", v):
-        if v:
+        # Gli ultimi 1/2 caratteri sono decimali
+        # se ci sono
+        if "," in v:
             decimal = v.split(",")[1]
-            if len(decimal) < 2:
+            if len(decimal) < 1:
                 raise ValueError(
                     "Rendita Euro non valida. Gli ultimi 2 caratteri devono essere decimali"
                 )
         return v
 
-    @model_validator(mode="after")
-    def check_date_relationships(self) -> "FabbricatiRecord1":
-        """Verifica la coerenza tra le date."""
-        # check data efficacia
-        if self.data_efficacia_iniziale and self.data_efficacia_finale:
-            if datetime.strptime(
-                self.data_efficacia_iniziale, "%d%m%Y"
-            ) > datetime.strptime(self.data_efficacia_finale, "%d%m%Y"):
-                raise ValueError(
-                    "La data di efficacia iniziale non può essere successiva alla data di efficacia finale"
-                )
-        # check data registrazione
-        if (
-            self.data_registrazione_atti_iniziale
-            and self.data_registrazione_atti_finale
-        ):
-            if datetime.strptime(
-                self.data_registrazione_atti_iniziale, "%d%m%Y"
-            ) > datetime.strptime(self.data_registrazione_atti_finale, "%d%m%Y"):
-                raise ValueError(
-                    "La data di registrazione iniziale non può essere successiva alla data di registrazione finale"
-                )
+    # @model_validator(mode="after")
+    # def check_date_relationships(self) -> "FabbricatiRecord1":
+    #     """Verifica la coerenza tra le date."""
+    # check data efficacia
+    # if (
+    #     len(self.data_efficacia_iniziale) == 8
+    #     and len(self.data_efficacia_finale) == 8
+    # ):
+    #     if datetime.strptime(
+    #         self.data_efficacia_iniziale, "%d%m%Y"
+    #     ) > datetime.strptime(self.data_efficacia_finale, "%d%m%Y"):
+    #         raise ValueError(
+    #             "La data di efficacia iniziale non può essere successiva alla data di efficacia finale"
+    #         )
+    # check data registrazione
+    # if (
+    #     self.data_registrazione_atti_iniziale == 8
+    #     and self.data_registrazione_atti_finale == 8
+    # ):
+    #     if datetime.strptime(
+    #         self.data_registrazione_atti_iniziale, "%d%m%Y"
+    #     ) > datetime.strptime(self.data_registrazione_atti_finale, "%d%m%Y"):
+    #         raise ValueError(
+    #             "La data di registrazione iniziale non può essere successiva alla data di registrazione finale"
+    #         )
 
-        return self
+    # return self
 
 
 class Identificativo(BaseModel):
@@ -447,7 +455,6 @@ class Indirizzo(BaseModel):
     toponimo: Annotated[
         str,
         Field(
-            min_length=3,
             max_length=3,
             alias="TOPONIMO",
         ),
