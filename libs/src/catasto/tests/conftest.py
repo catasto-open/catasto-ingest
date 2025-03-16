@@ -8,6 +8,7 @@ from catasto.reader import LocalFileReaderService
 
 from .fab_factory import FabbricatiRecord1Factory, FabbricatiTestGenerator
 from .sog_factory import SoggettiTestGenerator
+from .ter_factory import TerreniRecord1Factory, TerreniTestGenerator
 from .tit_factory import TitolaritaTestGenerator
 
 directory = pathlib.Path("tests/data/")
@@ -133,6 +134,71 @@ def static_fab_record5_invalid_line():
     return "H501| |3675191|F|4|5|5|1234567890|"  # Partita iscrizione riserva deve essere massimo 7 caratteri
 
 
+# --- Fixture per i file TER ---
+
+
+@pytest.fixture
+def static_ter_record1_valid_line():
+    """Ritorna un record TER di tipo 1 valido da dati sintetici."""
+    return "H501|A|2041104|T|2|1|197|08198||||899|00||||1|0|0|0|0|0|0|19022025|19022025|M|121089|001|2025|||||||0000000||234408950||TM| presentato il 19/02/2025 PER NUOVA COSTRUZIONE|||"  # noqa
+
+
+@pytest.fixture
+def static_ter_record1_invalid_line():
+    """Ritorna un record TER di tipo 1 non valido da dati sintetici."""
+    return "H501|A|20411A04|T|2|1|197|08198||||899|00||||1|0|0|0|0|0|0|19022025|19022025|M|121089|001|2025|||||||0000000||234408950||TM| presentato il 19/02/2025 PER NUOVA COSTRUZIONE|||"  # noqa
+
+
+@pytest.fixture
+def static_ter_record2_valid_line():
+    """Ritorna un record TER di tipo 2 valido da dati sintetici."""
+    return "H501|A|5992|T|10|2|<A6|"
+
+
+@pytest.fixture
+def static_ter_record2_invalid_line():
+    """Ritorna un record TER di tipo 2 non valido da dati sintetici."""
+    return "H501|A|5992|T|10|2|<A600000000|"  # simbolo deduzione deve essere massimo 7 caratteri
+
+
+@pytest.fixture
+def static_ter_record3_valid_line():
+    """Ritorna un record TER di tipo 3 valido da dati sintetici."""
+    return "H501|A|1676490|T|3|3|5||"
+
+
+@pytest.fixture
+def static_ter_record3_invalid_line():
+    """Ritorna un record TER di tipo 3 valido da dati sintetici."""
+    return (
+        "H501|A|1676490|T|3|3|533||"  # codice riserva deve essere massimo 1 carattere
+    )
+
+
+@pytest.fixture
+def static_ter_record4_valid_line():
+    """Ritorna un record TER di tipo 4 valido da dati sintetici."""
+    return "H501|A|1676490|T|1|4|53|33|A5|345|33|1||23454,2||"
+
+
+@pytest.fixture
+def static_ter_record4_invalid_line():
+    """Ritorna un record TER di tipo 4 valido da dati sintetici."""
+    return "H501|A|1676490|T|1|4|53444|33|A5|345|33|1||23454,2||"  # identificativo porzione deve essere massimo 2 caratteri
+
+
+@pytest.fixture
+def static_ter_record1_euro_value_no_decimals_valid_line():
+    """Ritorna un record TER di tipo 1 valido con valore euro senza decimali."""
+    return "H501|A|2041104|T|2|1|19A7|08198||||899|00||||1|0|0|0|0|0|0|19022025|19022025|M|121089|001|2025|||||||0000000||234408950||TM| presentato il 19/02/2025 PER NUOVA COSTRUZIONE|||"
+
+
+@pytest.fixture
+def static_ter_record1_with_anomaly_dates_valid_line():
+    """Ritorna un record TER di tipo 1 valido con date anomale."""
+    return "H501|A|2041104|T|2|1|19A7|08198||||899|00||||1|0|0|0|0|0|0|19022025|19022025|M|121089|001|2025|18022025||||||0000000||234408950||TM| presentato il 19/02/2025 PER NUOVA COSTRUZIONE|||"
+
+
 # --- Fixture per i file SOG ---
 
 
@@ -185,7 +251,7 @@ def random_fab_record1():
 
 
 @pytest.fixture
-def random_immobile_completo():
+def random_fab_immobile_completo():
     """Genera un set completo di record per un immobile usando polyfactory."""
     return FabbricatiTestGenerator.genera_immobile_completo()
 
@@ -226,6 +292,64 @@ def custom_fab_file():
                 f.write(content.encode("utf-8"))
             else:
                 content = FabbricatiTestGenerator.genera_file_content(records)
+                f.write(content.encode("utf-8"))
+
+            filepath = f.name
+
+        return filepath
+
+    # Restituisce la funzione factory
+    return _create_custom_file
+
+
+@pytest.fixture
+def random_ter_record1():
+    """Genera un record di tipo 1 casuale valido usando polyfactory."""
+    return TerreniRecord1Factory.build()
+
+
+@pytest.fixture
+def random_ter_immobile_completo():
+    """Genera un set completo di record per un immobile usando polyfactory."""
+    return TerreniTestGenerator.genera_immobile_completo()
+
+
+@pytest.fixture
+def temp_ter_file():
+    """Crea un file TER temporaneo con dati casuali generati da polyfactory."""
+    with tempfile.NamedTemporaryFile(suffix=".TER", delete=False) as f:
+        records = TerreniTestGenerator.genera_file_terreni(num_immobili=3)
+        content = TerreniTestGenerator.genera_file_content(records)
+        f.write(content.encode("utf-8"))
+        filepath = f.name
+
+    # Restituisce il percorso del file
+    yield filepath
+
+    # Pulisce dopo il test
+    os.unlink(filepath)
+
+
+@pytest.fixture
+def custom_ter_file():
+    """Crea un file TER con contenuto personalizzato usando polyfactory."""
+
+    def _create_custom_file(num_immobili=3, con_errori=False):
+        with tempfile.NamedTemporaryFile(suffix=".TER", delete=False) as f:
+            records = TerreniTestGenerator.genera_file_terreni(
+                num_immobili=num_immobili
+            )
+
+            # Se richiesto, introduci errori
+            if con_errori:
+                # Modifica il contenuto direttamente nel file invece di modificare i record
+                # Questo permette di mantenere la validazione Pydantic ma avere un file con errori
+                content = TerreniTestGenerator.genera_file_content(records)
+                # Sostituisce il tipo di immobile Terreno con un valore non valido
+                content = content.replace("T", "M")
+                f.write(content.encode("utf-8"))
+            else:
+                content = TerreniTestGenerator.genera_file_content(records)
                 f.write(content.encode("utf-8"))
 
             filepath = f.name

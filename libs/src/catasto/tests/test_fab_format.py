@@ -35,7 +35,7 @@ class TestFabRecordInfo:
         "Verifica che una linea con un record generico venga interpretata correttamente."
 
         with pytest.raises(ValidationError):
-            fab_record_info = parse_fab_record_info(static_fab_record1_invalid_line)
+            parse_fab_record_info(static_fab_record1_invalid_line)
 
 
 class TestFabbricatiRecord1:
@@ -138,7 +138,7 @@ class TestFabbricatiRecord1:
 
         with pytest.raises(ValidationError):
             fab_record_info = parse_fab_record_info(static_fab_record1_invalid_line)
-            parser = parse_fab_record1_line(fab_record_info)
+            parse_fab_record1_line(fab_record_info)
 
     # def test_valid_record1(self, random_fab_record1):
     #     """Verifica che un record generato casualmente sia valido."""

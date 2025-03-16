@@ -15,9 +15,9 @@ from .schemas.building import (
     FabRecordInfo,
     Identificativo,
     Indirizzo,
-    Riserva,
     UtilitaComune,
 )
+from .schemas.building import Riserva as BuildingRiserva
 from .schemas.carto import CartoHeaderModel, CartoObject, LandSheet
 from .schemas.census import Census
 from .schemas.entitlement import (
@@ -28,6 +28,18 @@ from .schemas.entitlement import (
     TitolaritaModel,
     TitRecordInfo,
 )
+from .schemas.land import (
+    Deduzione,
+    PorzioneSdi,
+    TerRecordInfo,
+    TerreniImmobile,
+    TerreniModel,
+    TerreniRecord1,
+    TerreniRecord2,
+    TerreniRecord3,
+    TerreniRecord4,
+)
+from .schemas.land import Riserva as LandRiserva
 from .schemas.subject import (
     SoggettiModel,
     SoggettiRecordGiuridicPerson,
@@ -573,6 +585,249 @@ class FileParserService(FileParser):
 
         record_info = parse_fab_record_info(line=line)
         parser = parse_fab_record5_line(record=record_info)
+
+        return parser
+
+    def _parse_ter_file(self, census: Census, content: str) -> None:
+        """
+        Parsifica un file .TER e aggiorna l'oggetto Census con i dati di fabbricati.
+
+        Args:
+            census: L'oggetto Census da aggiornare
+            content: Il contenuto del file TER
+
+        Raises:
+            ValueError: Se il file è vuoto o malformato
+            ValidationError: Se i dati non rispettano i vincoli dei modelli
+            ParsingError: Se ci sono errori durante il parsing
+        """
+        if not content:
+            raise ValueError("Contenuto del file TER vuoto o non valido")
+        # Inizializza il modello TerreniModel se non esiste già
+        if not census.terreni:
+            census.terreni = TerreniModel()
+
+        # Errori accumulati durante il parsing
+        errors = []
+
+        try:
+            # Organizziamo i record per immobile
+            record_groups = {}
+            # Processa ogni linea
+            for line_num, line in enumerate(content.splitlines(), 1):
+                if not line:
+                    continue
+
+                try:
+                    # Estrai le informazioni di base
+                    record_info = self._parse_ter_record_info(line)
+                    key = (
+                        record_info.codice_amministrativo,
+                        record_info.sezione,
+                        record_info.identificativo_immobile,
+                        record_info.tipo_immobile,
+                        record_info.progressivo,
+                    )
+
+                    # Se è un nuovo immobile, inizializza il dizionario
+                    if key not in record_groups:
+                        record_groups[key] = {}
+
+                    # Aggiungi il record al dizionario dell'immobile
+                    record_groups[key][record_info.tipo_record] = record_info.raw_line
+
+                except Exception as e:
+                    # Accumula l'errore
+                    errors.append(f"Errore alla riga {line_num}: {str(e)}")
+
+            # Solleva un'eccezione se ci sono stati errori durante il parsing delle righe
+            if errors:
+                print(errors)
+                raise ParsingError("Errori nel parsing del file TER", errors)
+
+            # Processa ogni gruppo di record per creare immobili
+            for key, records in record_groups.items():
+                try:
+                    # Verifica che ci siano i record obbligatori
+                    if "1" not in records.keys():
+                        errors.append(
+                            f"Immobile {key}: manca il record di tipo 1 (obbligatorio)"
+                        )
+                        continue
+
+                    # Crea l'immobile
+                    immobile = self._parse_ter_immobile(key, records)
+
+                    # Aggiungi l'immobile al census
+                    census.terreni.add_immobile(immobile)
+
+                except Exception as e:
+                    errors.append(f"Errore nel parsing dell'immobile {key}: {str(e)}")
+
+            # Solleva un'eccezione se ci sono stati errori nel parsing degli immobili
+            if errors:
+                raise ParsingError("Errori nel parsing del file TER", errors)
+
+            # Se non ci sono immobili, potrebbe essere un problema
+            if not census.terreni.immobili:
+                logger.warning("Nessun immobile trovato nel file TER")
+
+        except ParsingError:
+            # Rilanciamo l'eccezione ParsingError senza modificarla
+            logger.error("Errori durante il parsing del file TER")
+            raise
+
+        except Exception as e:
+            # Per altre eccezioni, le convertiamo in ParsingError
+            logger.error(
+                f"Errore non previsto durante il parsing del file TER: {str(e)}"
+            )
+            raise ParsingError(f"Errore durante il parsing del file : {str(e)}")
+
+    def _parse_ter_record_info(self, line: str) -> TerRecordInfo:
+        """
+        Estrae le informazioni di base da una riga del file TER.
+
+        Args:
+            line: La riga del file TER
+
+        Returns:
+            TerRecordInfo: Le informazioni estratte
+
+        Raises:
+            ValueError: Se la riga è malformata
+        """
+
+        try:
+            parser = parse_ter_record_info(line=line)
+            return parser
+        except Exception:
+            raise
+
+    def _parse_ter_immobile(
+        self, key: tuple, records: Dict[str, str]
+    ) -> TerreniImmobile:
+        """
+        Crea un oggetto TerreniImmobile dai record estratti.
+
+        Args:
+            key: Tupla che identifica l'immobile
+            records: Dizionario dei record per tipo
+
+        Returns:
+            TerreniImmobile: L'oggetto immobile creato
+
+        Raises:
+            ValueError: Se mancano i record obbligatori o se ci sono errori nei record
+        """
+
+        # Estrai i dati dalla chiave
+        (
+            codice_amministrativo,
+            sezione,
+            identificativo_immobile,
+            tipo_immobile,
+            progressivo,
+        ) = key
+
+        # Crea i record specifici
+        record1 = self._parse_ter_record1_line(records["1"])
+
+        # Record opzionali
+        record2 = self._parse_ter_record2_line(records["2"]) if "2" in records else None
+        record3 = self._parse_ter_record3_line(records["3"]) if "3" in records else None
+        record4 = self._parse_ter_record4_line(records["4"]) if "4" in records else None
+
+        # Crea e restituisci l'oggetto immobile
+        return TerreniImmobile(
+            codice_amministrativo=codice_amministrativo,
+            sezione=sezione,
+            identificativo_immobile=identificativo_immobile,
+            tipo_immobile=tipo_immobile,
+            progressivo=progressivo,
+            record1=record1,
+            record2=record2,
+            record3=record3,
+            record4=record4,
+        )
+
+    def _parse_ter_record1_line(self, line: str) -> TerreniRecord1:
+        """
+        Parsifica una riga di record di tipo 1.
+
+        Args:
+            line: La riga del record
+
+        Returns:
+            TerreniRecord1: L'oggetto record creato
+
+        Raises:
+            ValueError: Se la riga è malformata
+            ValidationError: Se i dati non rispettano i vincoli del modello
+        """
+
+        record_info = parse_ter_record_info(line=line)
+        parser = parse_ter_record1_line(record=record_info)
+
+        return parser
+
+    def _parse_ter_record2_line(self, line: str) -> TerreniRecord2:
+        """
+        Parsifica una riga di record di tipo 2.
+
+        Args:
+            line: La riga del record
+
+        Returns:
+            TerreniRecord2: L'oggetto record creato
+
+        Raises:
+            ValueError: Se la riga è malformata
+            ValidationError: Se i dati non rispettano i vincoli del modello
+        """
+
+        record_info = parse_ter_record_info(line=line)
+        parser = parse_ter_record2_line(record=record_info)
+
+        return parser
+
+    def _parse_ter_record3_line(self, line: str) -> TerreniRecord3:
+        """
+        Parsifica una riga di record di tipo 3.
+
+        Args:
+            line: La riga del record
+
+        Returns:
+            TerreniRecord3: L'oggetto record creato
+
+        Raises:
+            ValueError: Se la riga è malformata
+            ValidationError: Se i dati non rispettano i vincoli del modello
+        """
+
+        record_info = parse_ter_record_info(line=line)
+        parser = parse_ter_record3_line(record=record_info)
+
+        return parser
+
+    def _parse_ter_record4_line(self, line: str) -> TerreniRecord4:
+        """
+        Parsifica una riga di record di tipo 4.
+
+        Args:
+            line: La riga del record
+
+        Returns:
+            TerreniRecord4: L'oggetto record creato
+
+        Raises:
+            ValueError: Se la riga è malformata
+            ValidationError: Se i dati non rispettano i vincoli del modello
+        """
+
+        record_info = parse_ter_record_info(line=line)
+        parser = parse_ter_record4_line(record=record_info)
 
         return parser
 
@@ -1351,7 +1606,7 @@ def parse_fab_record5_line(
 
         # Crea l'oggetto Riserva e aggiungilo alla lista
         try:
-            riserva = Riserva(**riserva_data)
+            riserva = BuildingRiserva(**riserva_data)
             riserve.append(riserva)
         except ValidationError as e:
             print(f"Errore nella creazione della riserva {i+1}: {str(e)}")
@@ -1363,6 +1618,375 @@ def parse_fab_record5_line(
     # Crea e restituisci l'oggetto FabbricatiRecord5
     try:
         return FabbricatiRecord5(**record_data)
+    except ValidationError as e:
+        print(f"Errore nella creazione del record4: {str(e)}")
+        raise
+
+
+def parse_ter_record_info(line: str) -> TerRecordInfo:
+    """
+    Estrae le informazioni di base da una riga del file TER.
+
+    Args:
+        line: La riga del file TER
+
+    Returns:
+        TerRecordInfo: Le informazioni estratte
+
+    Raises:
+        ValueError: Se la riga è malformata
+    """
+
+    # Divide la linea nelle parti header e data
+    parts = line.split("|")
+    if len(parts) < 5:
+        raise ValueError(f"Formato riga non valido: {line}")
+
+    header = parts[:6]
+    data = parts[6:]
+
+    # Estrai i campi chiave dall'header
+    if len(header) < 5:
+        raise ValueError(f"Header troppo corto: {header}")
+
+    codice_amministrativo = header[0]
+    sezione = header[1]
+    identificativo_immobile = header[2]
+    tipo_immobile = header[3]
+    progressivo = header[4]
+    tipo_record = header[5]
+
+    # Crea e restituisci l'oggetto TerRecordInfo
+    try:
+        return TerRecordInfo(
+            codice_amministrativo=codice_amministrativo,
+            sezione=sezione,
+            identificativo_immobile=identificativo_immobile,
+            tipo_immobile=tipo_immobile,
+            progressivo=progressivo,
+            tipo_record=tipo_record,
+            data=data,  # La parte dati dopo il tipo record
+            raw_line=line,  # Linea completa per riferimento
+            raw_tuple=parts,  # non tiene in considerazione la specifica
+            items_number=len(
+                parts
+            ),  # La lunghezza non tiene in considerazione la specifica
+        )
+    except ValidationError:
+        raise
+
+
+def parse_ter_record1_line(
+    record: TerRecordInfo,
+) -> TerreniRecord1:
+    """
+    Parsifica una riga di record di tipo 1.
+
+    Args:
+        record: La riga del record con modello TerRecordInfo
+
+    Returns:
+        TerreniRecord1: L'oggetto record creato
+
+    Raises:
+        ValidationError: Se i dati non rispettano i vincoli del modello
+    """
+
+    # Crea un dizionario con i campi di base
+    record_data = {
+        "codice_amministrativo": record.codice_amministrativo,
+        "sezione": record.sezione,
+        "identificativo_immobile": record.identificativo_immobile,
+        "tipo_immobile": record.tipo_immobile,
+        "progressivo": record.progressivo,
+        "tipo_record": record.tipo_record,
+    }
+
+    # Mappa dei campi in base alla posizione nei dati suddivisi
+
+    field_mapping = [
+        "foglio",
+        "numero",
+        "denominatore",
+        "subalterno",
+        "edificialita",
+        "qualita",
+        "classe",
+        "ettari",
+        "are",
+        "centiare",
+        "flag_reddito",
+        "flag_porzione",
+        "flag_deduzioni",
+        "reddito_dominicale_lire",
+        "reddito_agrario_lire",
+        "reddito_dominicale_euro",
+        "reddito_agrario_euro",
+        "data_efficacia_iniziale",
+        "data_registrazione_atti_iniziale",
+        "tipo_nota_iniziale",
+        "numero_nota_iniziale",
+        "progressivo_nota_iniziale",
+        "anno_nota_iniziale",
+        "data_efficacia_finale",
+        "data_registrazione_atti_finale",
+        "tipo_nota_finale",
+        "numero_nota_finale",
+        "progressivo_nota_finale",
+        "anno_nota_finale",
+        "partita",
+        "annotazione",
+        "identificativo_mutazione_iniziale",
+        "identificativo_mutazione_finale",
+        "codice_causale_atto_generante",
+        "descrizione_atto_generante",
+        "codice_causale_atto_conclusivo",
+        "descrizione_atto_conclusivo",
+    ]
+
+    # Popola il dizionario con i valori dai campi
+    if len(record.data) % len(field_mapping) > 0:
+        record.data = record.data[
+            : len(record.data) - (len(record.data) % len(field_mapping))
+        ]  # elimino l'ultimo elemento non rilevante
+    for i, field_name in enumerate(field_mapping):
+        if i <= len(record.data):
+            record_data[field_name] = record.data[i]
+
+    # Validazione con Pydantic: questo solleverà ValidationError se i dati non rispettano i vincoli
+    try:
+        record1 = TerreniRecord1(**record_data)
+    except ValidationError:
+        raise
+
+    return record1
+
+
+def parse_ter_record2_line(
+    record: TerRecordInfo,
+) -> TerreniRecord2:
+    """
+    Parsifica una riga di record di tipo 2.
+
+    Args:
+        record: La riga del record con modello TerRecordInfo
+
+    Returns:
+        TerreniRecord2: L'oggetto record creato
+
+    Raises:
+        ValidationError: Se i dati non rispettano i vincoli del modello
+    """
+
+    # Crea un dizionario con i campi di base
+    record_data = {
+        "codice_amministrativo": record.codice_amministrativo,
+        "sezione": record.sezione,
+        "identificativo_immobile": record.identificativo_immobile,
+        "tipo_immobile": record.tipo_immobile,
+        "progressivo": record.progressivo,
+        "tipo_record": record.tipo_record,
+    }
+
+    # Mappa dei campi in base alla posizione nei dati suddivisi
+
+    field_mapping = [
+        "simbolo_deduzione",
+    ]
+
+    # Lista per contenere tutti le deduzioni
+    num_deduzioni = len(record.data) // len(field_mapping)
+    deduzioni = []
+
+    # Itera attraverso i blocchi di dati per creare ogni deduzione
+    for i in range(num_deduzioni):
+        # Estrai i dati per questo deduzione
+        start_idx = i * len(field_mapping)
+        end_idx = start_idx + len(field_mapping)
+
+        # Se non ci sono abbastanza dati, interrompi il ciclo
+        if start_idx >= len(record.data):
+            break
+
+        # Estrai i dati per questo deduzione
+        id_data = record.data[start_idx:end_idx]
+
+        # Crea un dizionario per questo deduzione
+        deduzione_data = {}
+        for j, field_name in enumerate(field_mapping):
+            if j <= len(id_data):
+                deduzione_data[field_name] = id_data[j]
+
+        # Crea l'oggetto Deduzione e aggiungilo alla lista
+        try:
+            deduzione = Deduzione(**deduzione_data)
+            deduzioni.append(deduzione)
+        except ValidationError as e:
+            print(f"Errore nella creazione della deduzione {i+1}: {str(e)}")
+            raise
+
+    # Aggiungi la lista di deduzioni al dizionario dei dati del record
+    record_data["deduzioni"] = deduzioni
+
+    # Crea e restituisci l'oggetto TerreniRecord2
+    try:
+        return TerreniRecord2(**record_data)
+    except ValidationError as e:
+        print(f"Errore nella creazione del record2: {str(e)}")
+        raise
+
+
+def parse_ter_record3_line(
+    record: TerRecordInfo,
+) -> TerreniRecord3:
+    """
+    Parsifica una riga di record di tipo 3.
+
+    Args:
+        record: La riga del record con modello FabRecordInfo
+
+    Returns:
+        TerreniRecord3: L'oggetto record creato
+
+    Raises:
+        ValidationError: Se i dati non rispettano i vincoli del modello
+    """
+
+    # Crea un dizionario con i campi di base
+    record_data = {
+        "codice_amministrativo": record.codice_amministrativo,
+        "sezione": record.sezione,
+        "identificativo_immobile": record.identificativo_immobile,
+        "tipo_immobile": record.tipo_immobile,
+        "progressivo": record.progressivo,
+        "tipo_record": record.tipo_record,
+    }
+
+    # Mappa dei campi in base alla posizione nei dati suddivisi
+
+    field_mapping = [
+        "codice_riserva",
+        "partita_iscrizione_riserva",
+    ]
+
+    # Lista per contenere tutti gli riserve
+    num_riserve = len(record.data) // len(field_mapping)
+    riserve = []
+
+    # Itera attraverso i blocchi di dati per creare ogni riserva
+    for i in range(num_riserve):
+        # Estrai i dati per questa riserva
+        start_idx = i * len(field_mapping)
+        end_idx = start_idx + len(field_mapping)
+
+        # Se non ci sono abbastanza dati, interrompi il ciclo
+        if start_idx >= len(record.data):
+            break
+
+        # Estrai i dati per questa riserva
+        id_data = record.data[start_idx:end_idx]
+
+        # Crea un dizionario per questo riserva
+        riserva_data = {}
+        for j, field_name in enumerate(field_mapping):
+            if j <= len(id_data):
+                riserva_data[field_name] = id_data[j]
+
+        # Crea l'oggetto Riserva e aggiungilo alla lista
+        try:
+            riserva = LandRiserva(**riserva_data)
+            riserve.append(riserva)
+        except ValidationError as e:
+            print(f"Errore nella creazione della riserva {i+1}: {str(e)}")
+            raise
+
+    # Aggiungi la lista di riserve al dizionario dei dati del record
+    record_data["riserve"] = riserve
+
+    # Crea e restituisci l'oggetto TerreniRecord3
+    try:
+        return TerreniRecord3(**record_data)
+    except ValidationError as e:
+        print(f"Errore nella creazione del record3: {str(e)}")
+        raise
+
+
+def parse_ter_record4_line(
+    record: TerRecordInfo,
+) -> TerreniRecord4:
+    """
+    Parsifica una riga di record di tipo 4.
+
+    Args:
+        record: La riga del record con modello TerRecordInfo
+
+    Returns:
+        TerreniRecord4: L'oggetto record creato
+
+    Raises:
+        ValidationError: Se i dati non rispettano i vincoli del modello
+    """
+
+    # Crea un dizionario con i campi di base
+    record_data = {
+        "codice_amministrativo": record.codice_amministrativo,
+        "sezione": record.sezione,
+        "identificativo_immobile": record.identificativo_immobile,
+        "tipo_immobile": record.tipo_immobile,
+        "progressivo": record.progressivo,
+        "tipo_record": record.tipo_record,
+    }
+
+    # Mappa dei campi in base alla posizione nei dati suddivisi
+
+    field_mapping = [
+        "identificativo_porzione",
+        "qualita",
+        "classe",
+        "ettari",
+        "are",
+        "centiare",
+        "reddito_dominicale_euro",
+        "reddito_agrario_euro",
+    ]
+
+    # Lista per contenere tutte le porzioni
+    num_porzioni = len(record.data) // len(field_mapping)
+    porzioni = []
+
+    # Itera attraverso i blocchi di dati per creare ogni porzione
+    for i in range(num_porzioni):
+        # Estrai i dati per questo porzione
+        start_idx = i * len(field_mapping)
+        end_idx = start_idx + len(field_mapping)
+
+        # Se non ci sono abbastanza dati, interrompi il ciclo
+        if start_idx >= len(record.data):
+            break
+
+        # Estrai i dati per questo identificativo
+        id_data = record.data[start_idx:end_idx]
+
+        # Crea un dizionario per questo identificativo
+        porzione_data = {}
+        for j, field_name in enumerate(field_mapping):
+            if j <= len(id_data):
+                porzione_data[field_name] = id_data[j]
+
+        # Crea l'oggetto PorzioneSdi e aggiungilo alla lista
+        try:
+            porzione = PorzioneSdi(**porzione_data)
+            porzioni.append(porzione)
+        except ValidationError as e:
+            print(f"Errore nella creazione della porzione {i+1}: {str(e)}")
+            raise
+
+    # Aggiungi la lista di porzioni al dizionario dei dati del record
+    record_data["porzioni"] = porzioni
+
+    # Crea e restituisci l'oggetto TerreniRecord4
+    try:
+        return TerreniRecord4(**record_data)
     except ValidationError as e:
         print(f"Errore nella creazione del record4: {str(e)}")
         raise

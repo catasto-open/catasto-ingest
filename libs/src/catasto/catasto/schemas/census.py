@@ -28,6 +28,23 @@ class CensusFabbricatiFileType(CensusFileType):
         return val.value
 
 
+class CensusTerreniFileType(CensusFileType):
+    filename: str
+    extension: str
+
+    @field_validator("filetype")
+    def validate_filetype(cls, val):
+        if not val.upper() == CensusTypeEnum.TER:
+            raise ValueError("The type is not TERRENI")
+        return val.value
+
+    @field_validator("extension")
+    def validate_extension(cls, val):
+        if not val.upper() == CensusTypeEnum.TER.name:
+            raise ValueError("The extension is not valid for TERRENI")
+        return val.value
+
+
 class Census(BaseModel):
     codice_comune: str = Field(..., alias="CODICE_COMUNE")
     sezione: str = Field(None, alias="SEZIONE")
