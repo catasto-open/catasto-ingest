@@ -15,6 +15,7 @@ s3fs = "^2022.10.0"
 miniopy-async = "^1.10"
 duckdb = "^1.2.1"
 gdal = "^3.10.2"
+structlog = "^25.2.0"
 
 [tool.poetry.group.dev.dependencies]
 ipython = "^8.6.0"
