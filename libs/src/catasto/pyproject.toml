@@ -13,6 +13,8 @@ s3fs = "^2022.10.0"
 # comment waiting for support of pydantic v2
 # catasto-db = {git = "https://github.com/catasto-open/catasto-db.git", branch = "develop"}
 miniopy-async = "^1.10"
+duckdb = "^1.2.1"
+gdal = "^3.10.2"
 
 [tool.poetry.group.dev.dependencies]
 ipython = "^8.6.0"
