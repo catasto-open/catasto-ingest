@@ -96,7 +96,9 @@ def download_files_from_minio(
         logger.debug(f"Downloaded CA certificate file: {enc_path}")
         return p12_path, enc_path, ca_cert_path, temp_dir
     except Exception as e:
-        temp_dir.rmdir()
+        logger.error(
+            f"Error while downloading files {p12_key}, {enc_file_key}, {ca_cert_key} from MinIO"
+        )
         raise Exception(
             f"There's an error while downloading files {p12_key}, {enc_file_key}, {ca_cert_key} from MinIO: {e}"
         )
@@ -311,6 +313,7 @@ def process_smidt_file_flow(
         logger.info(f"Final directory {final_dir}, folder name {folder_name}")
 
         # Upload all extracted files with the correct prefix
+        dest_paths = []
         for file_path in final_dir.rglob("*"):
             if file_path.is_file():
                 relative_path = file_path.relative_to(final_dir)
@@ -325,6 +328,9 @@ def process_smidt_file_flow(
                     output_bucket,
                     dest_path,
                 )
+                dest_paths.append(dest_path)
+
+        return dest_paths
 
     finally:
         # Clean temporary directories usando pathlib

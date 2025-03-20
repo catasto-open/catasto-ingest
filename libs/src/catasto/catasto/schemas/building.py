@@ -517,7 +517,7 @@ class UtilitaComune(BaseModel):
     foglio: Annotated[
         str,
         Field(
-            min_length=4,
+            default=None,
             max_length=4,
             alias="FOGLIO",
         ),
@@ -525,7 +525,7 @@ class UtilitaComune(BaseModel):
     numero: Annotated[
         str,
         Field(
-            min_length=5,
+            default=None,
             max_length=5,
             alias="NUMERO",
         ),

@@ -51,9 +51,8 @@ async def load_fabbricati(
         logger.error(f"File {fab_filepath} non trovato")
         raise FileNotFoundError(f"File {fab_filepath} non trovato.")
 
-    if not db_path.exists():
-        logger.error(f"File {duckdb_filepath} non trovato")
-        raise FileNotFoundError(f"File {fab_filepath} non trovato.")
+    if db_path.exists():
+        logger.error(f"File {duckdb_filepath} già esistente")
 
     # Crea una connessione diretta a DuckDB per inizializzare il database
     logger.debug(f"Connessione al database DuckDB {duckdb_filepath}")
@@ -129,8 +128,7 @@ async def load_fabbricati(
             numero varchar(5) NULL,
             denominato int4 NULL,
             subalterno varchar(4) NULL,
-            edificiale varchar(1) NULL,
-            PRIMARY KEY (codice, sezione, immobile, tipo_imm, progressiv)
+            edificiale varchar(1) NULL
         )
         """)
 
@@ -147,8 +145,7 @@ async def load_fabbricati(
             civico1 varchar(6) NULL,
             civico2 varchar(6) NULL,
             civico3 varchar(6) NULL,
-            cod_strada varchar(5) NULL,
-            PRIMARY KEY (codice, sezione, immobile, tipo_imm, progressiv)
+            cod_strada varchar(5) NULL
         )
         """)
 
@@ -164,8 +161,7 @@ async def load_fabbricati(
             foglio varchar(4) NULL,
             numero varchar(5) NULL,
             denominato int4 NULL,
-            subalterno varchar(4) NULL,
-            PRIMARY KEY (codice, sezione, immobile, tipo_imm, progressiv)
+            subalterno varchar(4) NULL
         )
         """)
 
@@ -178,8 +174,7 @@ async def load_fabbricati(
             tipo_imm varchar(1) NOT NULL,
             progressiv int4 NOT NULL,
             riserva varchar(1) NULL,
-            iscrizione varchar(7) NULL,
-            PRIMARY KEY (codice, sezione, immobile, tipo_imm, progressiv)
+            iscrizione varchar(7) NULL
         )
         """)
 

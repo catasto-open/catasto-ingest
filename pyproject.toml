@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "catasto-ingest"
 version = "0.1.0"
-description = "Catasto workflow for the automatic ingestion from Sister"
+description = "Catasto workflow for the automatic ingestion from Smidt"
 authors = ["Francesco Bartoli <francesco.bartoli@geobeyond.it>"]
 license = "MIT"
 packages = [
@@ -16,6 +16,7 @@ prefect = {extras = ["aws","docker"], version = "<3.0"}
 pyfiglet = "^0.8.post1"
 sister = {path = "libs/src/sister/", develop = false}
 smidt = {path = "libs/src/smidt/", develop = false}
+catasto = {path = "libs/src/catasto/", develop = false}
 s3fs = "^2023.12.2"
 mkdocs = "^1.5.3"
 mkdocs-material = "^9.5.39"

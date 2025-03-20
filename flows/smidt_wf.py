@@ -3,7 +3,9 @@ from prefect.blocks.system import JSON
 from smidt.client import FTPConfig
 from smidt.watcher import FTPMinioObserver
 
+from flows.duckdb_loader import ctcn_flow
 from flows.smidt_decrypt import process_smidt_file_flow
+from flows.smidt_prepare import download_and_sort_flow
 
 smidt_block = JSON.load("smidt-settings")
 
@@ -40,8 +42,9 @@ def smidt_flow():
     files = observe_and_copy()
     logger.info(f"Files found in the smidt server: {files}")
     if files:
+        cadaster_files = []
         for file in files:
-            process_smidt_file_flow(
+            cadaster_files += process_smidt_file_flow(
                 minio_server=smidt_block.value["minio_host"],
                 minio_access_key=smidt_block.value["minio_access_key"],
                 minio_secret_key=smidt_block.value["minio_secret_key"],
@@ -53,9 +56,23 @@ def smidt_flow():
                 key_password=smidt_block.value["key_password"],
                 output_bucket=smidt_block.value["siscat_bucket"],
             )
+        return cadaster_files
     else:
         logger.info("There isn't any new file to process!")
 
 
 if __name__ == "__main__":
-    smidt_flow()
+    files = smidt_flow()
+    local_sorted_files = download_and_sort_flow(
+        files_list=files,
+        minio_endpoint=smidt_block.value["minio_host"],
+        minio_access_key=smidt_block.value["minio_access_key"],
+        minio_secret_key=smidt_block.value["minio_secret_key"],
+        minio_bucket=smidt_block.value["siscat_bucket"],
+        secure=False,
+    )
+    ctcn_flow(
+        fab_files=local_sorted_files["FAB"],
+            "/tmp/H50100000.Fab",
+        ]
+    )
