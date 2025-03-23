@@ -8,11 +8,19 @@ from ..building import (
     FabbricatiRecord5,
     Identificativo,
     Indirizzo,
-    Riserva,
     UtilitaComune,
 )
+from ..building import Riserva as FabRiserva
 from ..entitlement import Titolarita
-from ..land import TerreniRecord1, TerreniRecord2, TerreniRecord3, TerreniRecord4
+from ..land import (
+    Deduzione,
+    Porzione,
+    TerreniRecord1,
+    TerreniRecord2,
+    TerreniRecord3,
+    TerreniRecord4,
+)
+from ..land import Riserva as TerRiserva
 from ..subject import SoggettiModel
 
 
@@ -222,7 +230,9 @@ class Curiserv(BaseModel):
     riserva: str | None
     iscrizione: str | None
 
-    def extract_from_model(dati_fabbricato: FabbricatiRecord5, dati_riserva: Riserva):
+    def extract_from_model(
+        dati_fabbricato: FabbricatiRecord5, dati_riserva: FabRiserva
+    ):
         return Curiserv(
             codice=dati_fabbricato.codice_amministrativo,
             sezione=dati_fabbricato.sezione,
@@ -240,47 +250,47 @@ class Ctpartic(BaseModel):
     immobile: int
     tipo_imm: str
     progressiv: int
-    foglio: int
-    numero: str
-    denominato: int
-    subalterno: str
-    edificiale: str
-    qualita: int
-    classe: str
-    ettari: int
-    are: int
-    centiare: int
-    flag_redd: str
-    flag_porz: str
-    flag_deduz: str
-    dominic_l: str
-    agrario_l: str
-    dominic_e: str
-    agrario_e: str
-    gen_eff: str
-    gen_regist: str
-    gen_tipo: str
-    gen_numero: str
-    gen_progre: str
-    gen_anno: int
-    con_eff: str
-    con_regist: str
-    con_tipo: str
-    con_numero: str
-    con_progre: str
-    con_anno: int
-    partita: str
-    annotazion: str
-    mutaz_iniz: int
-    mutaz_fine: int
-    gen_causa: str
-    gen_descr: str
-    con_causa: str
-    con_descr: str
+    foglio: int | None
+    numero: str | None
+    denominato: int | None
+    subalterno: str | None
+    edificiale: str | None
+    qualita: int | None
+    classe: str | None
+    ettari: int | None
+    are: int | None
+    centiare: int | None
+    flag_redd: str | None
+    flag_porz: str | None
+    flag_deduz: str | None
+    dominic_l: str | None
+    agrario_l: str | None
+    dominic_e: str | None
+    agrario_e: str | None
+    gen_eff: str | None
+    gen_regist: str | None
+    gen_tipo: str | None
+    gen_numero: str | None
+    gen_progre: str | None
+    gen_anno: int | None
+    con_eff: str | None
+    con_regist: str | None
+    con_tipo: str | None
+    con_numero: str | None
+    con_progre: str | None
+    con_anno: int | None
+    partita: str | None
+    annotazion: str | None
+    mutaz_iniz: int | None
+    mutaz_fine: int | None
+    gen_causa: str | None
+    gen_descr: str | None
+    con_causa: str | None
+    con_descr: str | None
 
     def extract_from_model(dati_terreno: TerreniRecord1):
         return Ctpartic(
-            codice=dati_terreno.codice_ammvo,
+            codice=dati_terreno.codice_amministrativo,
             sezione=dati_terreno.sezione,
             immobile=safe_cast(dati_terreno.identificativo_immobile, int, None),
             tipo_imm=dati_terreno.tipo_immobile,
@@ -302,18 +312,18 @@ class Ctpartic(BaseModel):
             agrario_l=str(dati_terreno.reddito_agrario_lire),
             dominic_e=str(dati_terreno.reddito_dominicale_euro),
             agrario_e=str(dati_terreno.reddito_agrario_euro),
-            gen_eff=dati_terreno.data_di_efficacia00,
-            gen_regist=dati_terreno.data_di_registrazione00,
-            gen_tipo=dati_terreno.tipo_nota00,
-            gen_numero=dati_terreno.numero_nota00,
-            gen_progre=dati_terreno.progressivo_nota00,
-            gen_anno=safe_cast(dati_terreno.anno_nota00, int, None),
-            con_eff=None,
-            con_regist=None,
-            con_tipo=None,
-            con_numero=None,
-            con_progre=None,
-            con_anno=None,
+            gen_eff=dati_terreno.data_efficacia_iniziale,
+            gen_regist=dati_terreno.data_registrazione_atti_iniziale,
+            gen_tipo=dati_terreno.tipo_nota_iniziale,
+            gen_numero=dati_terreno.numero_nota_iniziale,
+            gen_progre=dati_terreno.progressivo_nota_iniziale,
+            gen_anno=safe_cast(dati_terreno.anno_nota_iniziale, int, None),
+            con_eff=dati_terreno.data_efficacia_finale,
+            con_regist=dati_terreno.data_registrazione_atti_finale,
+            con_tipo=dati_terreno.tipo_nota_finale,
+            con_numero=dati_terreno.numero_nota_finale,
+            con_progre=dati_terreno.progressivo_nota_finale,
+            con_anno=safe_cast(dati_terreno.anno_nota_finale, int, None),
             partita=dati_terreno.partita,
             annotazion=dati_terreno.annotazione,
             mutaz_iniz=safe_cast(
@@ -335,16 +345,16 @@ class Ctdeduzi(BaseModel):
     immobile: int
     tipo_imm: str
     progressiv: int
-    deduzione: str
+    deduzione: str | None
 
-    def extract_from_model(dati_terreno: TerreniRecord2):
+    def extract_from_model(dati_terreno: TerreniRecord2, dati_deduzione: Deduzione):
         return Ctdeduzi(
-            codice=dati_terreno.codice_ammvo,
+            codice=dati_terreno.codice_amministrativo,
             sezione=dati_terreno.sezione,
             immobile=safe_cast(dati_terreno.identificativo_immobile, int, None),
             tipo_imm=dati_terreno.tipo_immobile,
             progressiv=safe_cast(dati_terreno.progressivo, int, None),
-            deduzione=dati_terreno.simbolo_deduzione,
+            deduzione=dati_deduzione.simbolo_deduzione,
         )
 
 
@@ -357,15 +367,15 @@ class Ctriserv(BaseModel):
     riserva: str
     iscrizione: str
 
-    def extract_from_model(dati_terreno: TerreniRecord3):
+    def extract_from_model(dati_terreno: TerreniRecord3, dati_riserva: TerRiserva):
         return Ctriserv(
-            codice=dati_terreno.codice_ammvo,
+            codice=dati_terreno.codice_amministrativo,
             sezione=dati_terreno.sezione,
             immobile=safe_cast(dati_terreno.identificativo_immobile, int, None),
             tipo_imm=dati_terreno.tipo_immobile,
             progressiv=safe_cast(dati_terreno.progressivo, int, None),
-            riserva=dati_terreno.codice_riserva,
-            iscrizione=dati_terreno.partita_iscrizione_riserva,
+            riserva=dati_riserva.codice_riserva,
+            iscrizione=dati_riserva.partita_iscrizione_riserva,
         )
 
 
@@ -375,30 +385,30 @@ class Ctporzio(BaseModel):
     immobile: int
     tipo_imm: str
     progressiv: int
-    porzione: str
-    qualita: int
-    classe: str
-    ettari: int
-    are: int
-    centiare: int
-    dominic_e: str
-    agrario_e: str
+    porzione: str | None
+    qualita: int | None
+    classe: str | None
+    ettari: int | None
+    are: int | None
+    centiare: int | None
+    dominic_e: str | None
+    agrario_e: str | None
 
-    def extract_from_model(dati_terreno: TerreniRecord4):
+    def extract_from_model(dati_terreno: TerreniRecord4, dati_porzione: Porzione):
         return Ctporzio(
-            codice=dati_terreno.codice_ammvo,
+            codice=dati_terreno.codice_amministrativo,
             sezione=dati_terreno.sezione,
             immobile=safe_cast(dati_terreno.identificativo_immobile, int, None),
             tipo_imm=dati_terreno.tipo_immobile,
             progressiv=safe_cast(dati_terreno.progressivo, int, None),
-            porzione=dati_terreno.identificativo_porzione,
-            qualita=safe_cast(dati_terreno.qualita, int, None),
-            classe=dati_terreno.classe,
-            ettari=safe_cast(dati_terreno.ettari, int, None),
-            are=safe_cast(dati_terreno.are, int, None),
-            centiare=safe_cast(dati_terreno.centiare, int, None),
-            dominic_e=None,
-            agrario_e=None,
+            porzione=dati_porzione.identificativo_porzione,
+            qualita=safe_cast(dati_porzione.qualita, int, None),
+            classe=dati_porzione.classe,
+            ettari=safe_cast(dati_porzione.ettari, int, None),
+            are=safe_cast(dati_porzione.are, int, None),
+            centiare=safe_cast(dati_porzione.centiare, int, None),
+            dominic_e=dati_porzione.reddito_dominicale_euro,
+            agrario_e=dati_porzione.reddito_agrario_euro,
         )
 
 
@@ -438,7 +448,7 @@ class Cttitola(BaseModel):
 
     def extract_from_model(dati_titolarita: Titolarita):
         return Cttitola(
-            codice=dati_titolarita.codice_ammvo,
+            codice=dati_titolarita.codice_amministrativo,
             sezione=dati_titolarita.sezione,
             soggetto=safe_cast(dati_titolarita.identificativo_soggetto, int, None),
             tipo_sog=dati_titolarita.tipo_soggetto,
@@ -492,7 +502,7 @@ class Ctfisica(BaseModel):
 
     def extract_from_model(dati_soggetto: SoggettiModel):
         return Ctfisica(
-            codice=dati_soggetto.codice_ammvo,
+            codice=dati_soggetto.codice_amministrativo,
             sezione=dati_soggetto.sezione,
             soggetto=safe_cast(dati_soggetto.identificativo_soggetto, int, None),
             tipo_sog=dati_soggetto.tipo_soggetto,
@@ -517,7 +527,7 @@ class Ctnonfis(BaseModel):
 
     def extract_from_model(dati_soggetto: SoggettiModel):
         return Ctnonfis(
-            codice=dati_soggetto.codice_ammvo,
+            codice=dati_soggetto.codice_amministrativo,
             sezione=dati_soggetto.sezione,
             soggetto=safe_cast(dati_soggetto.identificativo_soggetto, int, None),
             tipo_sog=dati_soggetto.tipo_soggetto,

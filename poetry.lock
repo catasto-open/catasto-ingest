@@ -606,7 +606,7 @@ develop = ["aiomisc-pytest", "pytest", "pytest-cov"]
 
 [[package]]
 name = "catasto"
-version = "0.1.0"
+version = "0.2.0"
 description = ""
 optional = false
 python-versions = "^3.10"
@@ -619,6 +619,7 @@ aiofiles = "^22.1.0"
 duckdb = "^1.2.1"
 gdal = "^3.10.2"
 miniopy-async = "^1.10"
+psycopg2 = "^2.9.10"
 py-scdb = "^0.0.2"
 pydantic = "^2.0"
 s3fs = "^2023.12.2"
@@ -2667,14 +2668,14 @@ type = ["mypy (>=1.14.1)"]
 
 [[package]]
 name = "prefect"
-version = "2.20.16"
+version = "2.20.17"
 description = "Workflow orchestration and management."
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
 files = [
-    {file = "prefect-2.20.16-py3-none-any.whl", hash = "sha256:354d6d08fead248c4defce85f43684b7288be6455e1b85a6ec4e80fe634bd1a6"},
-    {file = "prefect-2.20.16.tar.gz", hash = "sha256:ad124457dda96a60d1e6c3d038abaf75d2d3193177d8314cda001d82e10d7168"},
+    {file = "prefect-2.20.17-py3-none-any.whl", hash = "sha256:7d45e6c14fa29ddf8e928d57363c023dd61dd8b3eca4409cfc2e16f80a57b1d7"},
+    {file = "prefect-2.20.17.tar.gz", hash = "sha256:741312e32b5177c0c8f08e0b61a7f26f6c9e079fdfc50b301cecb7bb9005fe7b"},
 ]
 
 [package.dependencies]
@@ -2920,6 +2921,25 @@ files = [
     {file = "propcache-0.3.0-cp39-cp39-win_amd64.whl", hash = "sha256:bf4298f366ca7e1ad1d21bbb58300a6985015909964077afd37559084590c929"},
     {file = "propcache-0.3.0-py3-none-any.whl", hash = "sha256:67dda3c7325691c2081510e92c561f465ba61b975f481735aefdfc845d2cd043"},
     {file = "propcache-0.3.0.tar.gz", hash = "sha256:a8fd93de4e1d278046345f49e2238cdb298589325849b2645d4a94c53faeffc5"},
+]
+
+[[package]]
+name = "psycopg2"
+version = "2.9.10"
+description = "psycopg2 - Python-PostgreSQL Database Adapter"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "psycopg2-2.9.10-cp310-cp310-win32.whl", hash = "sha256:5df2b672140f95adb453af93a7d669d7a7bf0a56bcd26f1502329166f4a61716"},
+    {file = "psycopg2-2.9.10-cp310-cp310-win_amd64.whl", hash = "sha256:c6f7b8561225f9e711a9c47087388a97fdc948211c10a4bccbf0ba68ab7b3b5a"},
+    {file = "psycopg2-2.9.10-cp311-cp311-win32.whl", hash = "sha256:47c4f9875125344f4c2b870e41b6aad585901318068acd01de93f3677a6522c2"},
+    {file = "psycopg2-2.9.10-cp311-cp311-win_amd64.whl", hash = "sha256:0435034157049f6846e95103bd8f5a668788dd913a7c30162ca9503fdf542cb4"},
+    {file = "psycopg2-2.9.10-cp312-cp312-win32.whl", hash = "sha256:65a63d7ab0e067e2cdb3cf266de39663203d38d6a8ed97f5ca0cb315c73fe067"},
+    {file = "psycopg2-2.9.10-cp312-cp312-win_amd64.whl", hash = "sha256:4a579d6243da40a7b3182e0430493dbd55950c493d8c68f4eec0b302f6bbf20e"},
+    {file = "psycopg2-2.9.10-cp39-cp39-win32.whl", hash = "sha256:9d5b3b94b79a844a986d029eee38998232451119ad653aea42bb9220a8c5066b"},
+    {file = "psycopg2-2.9.10-cp39-cp39-win_amd64.whl", hash = "sha256:88138c8dedcbfa96408023ea2b0c369eda40fe5d75002c0964c78f46f11fa442"},
+    {file = "psycopg2-2.9.10.tar.gz", hash = "sha256:12ec0b40b0273f95296233e8750441339298e6a572f7039da5b260e3c8b60e11"},
 ]
 
 [[package]]
@@ -4244,15 +4264,15 @@ markers = {dev = "python_version < \"3.12\""}
 
 [[package]]
 name = "tzdata"
-version = "2025.1"
+version = "2025.2"
 description = "Provider of IANA time zone data"
 optional = false
 python-versions = ">=2"
 groups = ["main"]
 markers = "platform_system == \"Windows\" or python_version >= \"3.12\""
 files = [
-    {file = "tzdata-2025.1-py2.py3-none-any.whl", hash = "sha256:7e127113816800496f027041c570f50bcd464a020098a3b6b199517772303639"},
-    {file = "tzdata-2025.1.tar.gz", hash = "sha256:24894909e88cdb28bd1636c6887801df64cb485bd593f2fd83ef29075a81d694"},
+    {file = "tzdata-2025.2-py2.py3-none-any.whl", hash = "sha256:1a403fada01ff9221ca8044d701868fa132215d84beb92242d9acd2147f667a8"},
+    {file = "tzdata-2025.2.tar.gz", hash = "sha256:b60a638fcc0daffadf82fe0f57e53d06bdec2f36c4df66280ae79bce6bd6f2b9"},
 ]
 
 [[package]]

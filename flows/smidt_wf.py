@@ -72,7 +72,9 @@ if __name__ == "__main__":
         secure=False,
     )
     ctcn_flow(
+    ddb_file = ctcn_flow(
         fab_files=local_sorted_files["FAB"],
-            "/tmp/H50100000.Fab",
-        ]
+        ter_files=local_sorted_files["TER"],
+        catasto_db="/tmp/catasto.duckdb",
+        empty_db=True,
     )
