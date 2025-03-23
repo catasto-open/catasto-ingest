@@ -12,98 +12,98 @@ from prefect.logging import get_run_logger
 
 @contextmanager
 def temp_directory():
-    """Context manager per creare e gestire una directory temporanea"""
+    """Context manager to creare and handle a temporary directory."""
     temp_dir = Path(tempfile.mkdtemp())
     try:
         yield temp_dir
     finally:
-        pass  # Manteniamo i file, verrà pulito dal sistema
+        pass  # Maintain the directory, it will be cleaned up when the flow is done
 
 
 @task
-def group_files(lista_file: List[str]) -> Dict[str, Tuple[str, ...]]:
+def group_files(files_list: List[str]) -> Dict[str, Tuple[str, ...]]:
     """
-    Task che ordina i file secondo i criteri specificati e li raggruppa per estensione.
+    Order and group the files by extension.
 
     Args:
-        lista_file: Lista di percorsi file da ordinare
+        files_list: List filepaths to be ordered and grouped.
 
     Returns:
-        Dict[str, Tuple[str, ...]]: Dizionario con estensioni come chiavi e tuple di percorsi ordinati come valori
+        Dict[str, Tuple[str, ...]]: Dictionary with extensions as keys and tuples of ordered filepaths as values.
     """
     logger = get_run_logger()
-    logger.info(f"Ordinamento di {len(lista_file)} file")
+    logger.info(f"Ordering {len(files_list)} files...")
 
-    # Dizionario per raggruppare i file per estensione
-    file_per_estensione = {}
+    # Dizionary to group files by extension.
+    files_by_extension = {}
 
-    for percorso_file in lista_file:
+    for filepath in files_list:
         # Converti in Path e poi di nuovo in string con forward slashes
-        percorso = Path(percorso_file).as_posix()
+        path = Path(filepath).as_posix()
 
-        # Separare il percorso in parti
-        parti = percorso.split("/")
+        # Divide the path in parts
+        parts = path.split("/")
 
-        # Estrarre le componenti rilevanti
-        nome_completo = parti[-1]  # H501189146.Tit o H501A189149.Tit ecc.
-        nome_parti = nome_completo.split(".")
-        nome_file = nome_parti[0]  # H501189146 o H501A189149 ecc.
-        estensione = nome_parti[1]  # Tit, Fab, Prm, Sog, Ter
+        # Extract relevant components
+        complete_name = parts[-1]  # H501189146.Tit o H501A189149.Tit ecc.
+        name_parts = complete_name.split(".")
+        filename = name_parts[0]  # H501189146 o H501A189149 ecc.
+        extension = name_parts[1]  # Tit, Fab, Prm, Sog, Ter
 
-        # Estrarre l'identificativo (RM000189149022025)
-        id_completo = parti[-2]  # RM000189149022025
+        # Extract identifier (RM000189149022025)
+        complete_id = parts[-2]  # RM000189149022025
 
-        # Estrarre data (022025 -> mese 02, anno 2025)
-        ultimi_sei = id_completo[-6:]
-        mese = ultimi_sei[:2]
-        anno = ultimi_sei[2:]
+        # Extract date (022025 -> month 02, year 2025)
+        last_six = complete_id[-6:]
+        month = last_six[:2]
+        year = last_six[2:]
 
-        # Estrarre il numero (000189149)
-        numero_id = int(id_completo[2:-6])
+        # Extract the number (000189149)
+        number_id = int(complete_id[2:-6])
 
-        # Estrarre codice comune (H501) e resto del nome file
-        codice_comune = nome_file[:4]
-        resto_nome = nome_file[4:]
+        # Extract municipality code and the rest of the file name.
+        municipality_code = filename[:4]
+        reduced_name = filename[4:]
 
-        # Determinare se c'è un carattere alfabetico nel resto del nome
-        prefisso_alfa = ""
-        num_resto = resto_nome
+        # Determine if there is an alphabetical character in the rest of the name and extract it
+        alfa_prefix = ""
+        numeric_part = reduced_name
 
-        for char in resto_nome:
-            if char.isalpha():
-                # Posizione del carattere alfabetico
-                pos = resto_nome.find(char)
-                prefisso_alfa = resto_nome[pos]
-                # Il resto è il numero
-                num_resto = resto_nome.replace(char, "")
+        for char_ in reduced_name:
+            if char_.isalpha():
+                # alphabetic character position
+                pos = reduced_name.find(char_)
+                alfa_prefix = reduced_name[pos]
+                # after there is the number
+                numeric_part = reduced_name.replace(char_, "")
                 break
 
-        # Convertire la parte numerica in intero
-        num_resto = int(num_resto)
+        # Convert numeric part to integer
+        numeric_part = int(numeric_part)
 
-        # Chiave di ordinamento: (anno, mese, numero_id, prefisso_alfa, num_resto)
-        chiave_ordinamento = (anno, mese, numero_id, prefisso_alfa, num_resto)
+        # Ordering key: (year, month, number_id, alfa_prefix, numeric_part)
+        ordering_key = (year, month, number_id, alfa_prefix, numeric_part)
 
-        # Aggiungere al dizionario raggruppato per estensione
-        if estensione not in file_per_estensione:
-            file_per_estensione[estensione] = []
+        # Add results to the dictionary by extension type
+        if extension not in files_by_extension:
+            files_by_extension[extension] = []
 
-        file_per_estensione[estensione].append((chiave_ordinamento, percorso))
+        files_by_extension[extension].append((ordering_key, path))
 
-    # Ordinare ogni gruppo e creare tuple di risultati
-    risultati = {}
-    for estensione, file_list in file_per_estensione.items():
-        # Ordinare per la chiave di ordinamento
-        file_ordinati = sorted(file_list, key=lambda x: x[0])
-        # Estrarre solo i percorsi file (seconda parte della tupla)
-        percorsi_ordinati = tuple(item[1] for item in file_ordinati)
-        risultati[estensione.upper()] = percorsi_ordinati
+    # Order groups and create result tuples.
+    results = {}
+    for extension, file_list in files_by_extension.items():
+        # Ordering by ordering key
+        ordered_files = sorted(file_list, key=lambda x: x[0])
+        # Extract only the paths
+        ordered_paths = tuple(item[1] for item in ordered_files)
+        results[extension.upper()] = ordered_paths
 
         logger.info(
-            f"Estensione .{estensione.upper()}: {len(percorsi_ordinati)} file ordinati"
+            f"Extension .{extension.upper()}: {len(ordered_paths)} ordered files"
         )
 
-    return risultati
+    return results
 
 
 @task
@@ -159,13 +159,13 @@ def downloaded_grouped_files(
     local_grouped_files = {}
 
     try:
-        # Itera per ogni estensione e lista di file
-        for estensione, file_list in grouped_files.items():
+        # Itera per ogni extension e lista di file
+        for extension, file_list in grouped_files.items():
             local_files = []
 
             # Scarica ogni file
             for file_path in file_list:
-                # Converti in Path e ottieni parti del percorso
+                # Converti in Path e ottieni parts del path
                 remote_path = Path(file_path).as_posix()
 
                 # Crea la struttura di directory locale
@@ -177,7 +177,7 @@ def downloaded_grouped_files(
                 local_dir = temp_dir / dir_structure
                 local_dir.mkdir(parents=True, exist_ok=True)
 
-                # Percorso locale completo
+                # path locale completo
                 local_file_path = local_dir / file_name
 
                 # Scarica il file da Minio
@@ -191,14 +191,12 @@ def downloaded_grouped_files(
                     local_files.append(str(local_file_path))
                 except Exception as e:
                     logger.error(f"Errore nel download di {remote_path}: {str(e)}")
-                    # Aggiungi comunque il percorso locale (potrebbe essere necessario per la gestione degli errori)
+                    # Aggiungi comunque il path locale (potrebbe essere necessario per la gestione degli errori)
                     local_files.append(str(local_file_path))
 
             # Aggiungi al dizionario come tuple
-            local_grouped_files[estensione] = tuple(local_files)
-            logger.info(
-                f"Scaricati {len(local_files)} file con estensione .{estensione}"
-            )
+            local_grouped_files[extension] = tuple(local_files)
+            logger.info(f"Scaricati {len(local_files)} file con extension .{extension}")
 
     except Exception as e:
         logger.error(f"Errore durante il download dei file: {str(e)}")
@@ -220,7 +218,7 @@ def download_and_sort_flow(
     Flusso che ordina i file e li scarica da Minio.
 
     Args:
-        lista_file: Lista di percorsi file da ordinare
+        files_list: Lista di percorsi file da ordinare
         minio_endpoint: Endpoint del server Minio
         minio_access_key: Access key per Minio
         minio_secret_key: Secret key per Minio

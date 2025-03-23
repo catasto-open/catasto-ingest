@@ -260,25 +260,41 @@ class DuckDBRepository(Generic[T]):
                 raise ValueError(f"Manca il valore per la chiave primaria: {pk}")
 
         def do_find():
-            # Costruisci la condizione WHERE basata sulle chiavi primarie
-            where_conditions = " AND ".join([f'"{pk}" = ?' for pk in self.primary_keys])
-            where_values = [id_values[pk] for pk in self.primary_keys]
+            try:
+                # Costruisci la condizione WHERE basata sulle chiavi primarie
+                where_conditions = " AND ".join(
+                    [f'"{pk}" = ?' for pk in self.primary_keys]
+                )
+                where_values = [id_values[pk] for pk in self.primary_keys]
 
-            # Crea ed esegui la query
-            query = f"SELECT * FROM {self.table_name} WHERE {where_conditions}"
-            result = self.connection.execute(query, where_values).fetchone()
+                # Crea ed esegui la query
+                query = f"SELECT * FROM {self.table_name} WHERE {where_conditions}"
+                result = self.connection.execute(query, where_values).fetchone()
 
-            if result:
-                # Converti il risultato in un dizionario e poi nel modello Pydantic
-                columns = [
-                    col[0]
-                    for col in self.connection.execute(
-                        f"PRAGMA table_info({self.table_name})"
-                    ).fetchall()
-                ]
-                record = dict(zip(columns, result))
-                return self.entity_type(**record)
-            return None
+                if result:
+                    # Ottieni i nomi delle colonne in modo più sicuro
+                    if "." in self.table_name:
+                        schema, table = self.table_name.split(".")
+                        cols_query = f"SELECT column_name FROM information_schema.columns WHERE table_schema = '{schema}' AND table_name = '{table}'"
+                        columns = [
+                            col[0]
+                            for col in self.connection.execute(cols_query).fetchall()
+                        ]
+                    else:
+                        columns = [
+                            col[0]
+                            for col in self.connection.execute(
+                                f"PRAGMA table_info({self.table_name})"
+                            ).fetchall()
+                        ]
+
+                    # Crea il dizionario e il modello
+                    record = dict(zip(columns, result))
+                    return self.entity_type(**record)
+                return None
+            except Exception as e:
+                print(f"Errore in find_by_id: {type(e).__name__}: {str(e)}")
+                return None
 
         return await self._execute_in_thread(do_find)
 
@@ -291,24 +307,35 @@ class DuckDBRepository(Generic[T]):
         """
 
         def do_find_all():
-            # Ottieni tutte le colonne della tabella
-            columns = [
-                col[0]
-                for col in self.connection.execute(
-                    f"PRAGMA table_info({self.table_name})"
-                ).fetchall()
-            ]
+            try:
+                # Ottieni i nomi delle colonne in modo più sicuro
+                if "." in self.table_name:
+                    schema, table = self.table_name.split(".")
+                    cols_query = f"SELECT column_name FROM information_schema.columns WHERE table_schema = '{schema}' AND table_name = '{table}'"
+                    columns = [
+                        col[0] for col in self.connection.execute(cols_query).fetchall()
+                    ]
+                else:
+                    columns = [
+                        col[0]
+                        for col in self.connection.execute(
+                            f"PRAGMA table_info({self.table_name})"
+                        ).fetchall()
+                    ]
 
-            # Esegui la query
-            query = f"SELECT * FROM {self.table_name}"
-            results = self.connection.execute(query).fetchall()
+                # Esegui la query
+                query = f"SELECT * FROM {self.table_name}"
+                results = self.connection.execute(query).fetchall()
 
-            # Converti i risultati in modelli Pydantic
-            entities = []
-            for row in results:
-                record = dict(zip(columns, row))
-                entities.append(self.entity_type(**record))
+                # Converti i risultati in modelli Pydantic
+                entities = []
+                for row in results:
+                    record = dict(zip(columns, row))
+                    entities.append(self.entity_type(**record))
 
-            return entities
+                return entities
+            except Exception as e:
+                print(f"Errore in find_all: {type(e).__name__}: {str(e)}")
+                return []
 
         return await self._execute_in_thread(do_find_all)
