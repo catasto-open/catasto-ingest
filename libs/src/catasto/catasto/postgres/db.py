@@ -765,6 +765,12 @@ class DatabaseSynchronizer:
                         # Converti in dizionario usando il metodo sicuro
                         try:
                             prev_record_dict = prev_record.model_dump()
+                            prev_record_dict["con_eff"] = record.gen_eff
+                            prev_record_dict["con_regist"] = record.gen_regist
+                            prev_record_dict["con_tipo"] = record.gen_tipo
+                            prev_record_dict["con_numero"] = record.gen_numero
+                            prev_record_dict["con_progre"] = record.gen_progre
+                            prev_record_dict["con_anno"] = record.gen_anno
                             prev_record_dict["mutaz_fine"] = record.mutaz_iniz
 
                             # Crea una nuova istanza dell'entità
@@ -887,6 +893,12 @@ class DatabaseSynchronizer:
                         # Converti in dizionario usando il metodo sicuro
                         try:
                             prev_record_dict = prev_record.model_dump()
+                            prev_record_dict["con_eff"] = record.gen_eff
+                            prev_record_dict["con_regist"] = record.gen_regist
+                            prev_record_dict["con_tipo"] = record.gen_tipo
+                            prev_record_dict["con_numero"] = record.gen_numero
+                            prev_record_dict["con_progre"] = record.gen_progre
+                            prev_record_dict["con_anno"] = record.gen_anno
                             prev_record_dict["mutaz_fine"] = record.mutaz_iniz
 
                             # Crea una nuova istanza dell'entità
