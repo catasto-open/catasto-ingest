@@ -18,7 +18,10 @@ from catasto.schemas.catastodb.models import (
 
 
 async def load_fabbricati(
-    fab_filepath: str, duckdb_filepath: str, clean_db: bool, logger: BoundLogger = None
+    fab_filepath: str,
+    duckdb_filepath: str,
+    clean_tables: bool,
+    logger: BoundLogger = None,
 ) -> str:
     """
     Carica i dati dei fabbricati da un file .Fab in un database DuckDB.
@@ -26,7 +29,7 @@ async def load_fabbricati(
     Args:
         fab_filepath: Percorso al file .Fab
         duckdb_filepath: Percorso al file DuckDB
-        clean_db: Se True, cancella i dati esistenti nelle tabelle
+        clean_tables: Se True, cancella i dati esistenti nelle tabelle
         logger: Logger strutturato da utilizzare (se None, ne viene creato uno)
 
     Returns:
@@ -40,7 +43,7 @@ async def load_fabbricati(
         "load_started",
         input_file=fab_filepath,
         database=duckdb_filepath,
-        clean_db=clean_db,
+        clean_tables=clean_tables,
     )
 
     # Verifiche preliminari
@@ -179,7 +182,7 @@ async def load_fabbricati(
         """)
 
         # Se richiesto, pulisci le tabelle
-        if clean_db:
+        if clean_tables:
             logger.info("Pulizia delle tabelle richiesta")
             for table in ["cuarcuiu", "cuidenti", "cuindiri", "cuutilit", "curiserv"]:
                 duck_conn.execute(f"DELETE FROM ctcn.{table}")

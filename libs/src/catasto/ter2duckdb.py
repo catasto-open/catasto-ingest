@@ -7,7 +7,7 @@ if __name__ == "__main__":
         load_terreni(
             fab_filepath="/tmp/test.Ter",
             duckdb_filepath="/tmp/catasto.duckdb",
-            clean_db=True,
+            clean_tables=True,
         )
     )
     print(f"Database path: {db_path}")

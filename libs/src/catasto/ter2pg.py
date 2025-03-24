@@ -1,13 +1,7 @@
 import asyncio
 
 from catasto.postgres.db import DatabaseSynchronizer
-from catasto.schemas.catastodb.models import (
-    Cuarcuiu,
-    Cuidenti,
-    Cuindiri,
-    Curiserv,
-    Cuutilit,
-)
+from catasto.schemas.catastodb.models import Ctdeduzi, Ctpartic, Ctporzio, Ctriserv
 
 
 # Esempio di utilizzo
@@ -20,11 +14,10 @@ async def sync_duckdb_to_postgres():
 
     # Mappa le tabelle ai tipi di entità
     entity_types = {
-        "cuarcuiu": Cuarcuiu,
-        "cuidenti": Cuidenti,
-        "cuindiri": Cuindiri,
-        "curiserv": Curiserv,
-        "cuutilit": Cuutilit,
+        "ctpartic": Ctpartic,
+        "ctdeduzi": Ctdeduzi,
+        "ctriserv": Ctriserv,
+        "ctporzio": Ctporzio,
     }
 
     # Crea l'istanza del sincronizzatore
@@ -44,7 +37,7 @@ async def sync_duckdb_to_postgres():
 
         # Stampa le statistiche
         if stats.get("success"):
-            print("Sincronizzazione fabbricati completata:")
+            print("Sincronizzazione terreni completata:")
             updated = stats["stats"]["updated"]
             inserted = stats["stats"]["inserted"]
             errors = stats["stats"]["errors"]

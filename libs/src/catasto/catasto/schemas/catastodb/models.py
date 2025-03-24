@@ -1,4 +1,6 @@
-from pydantic import BaseModel
+from typing import Any, Dict
+
+from pydantic import BaseModel, model_validator
 
 from ..building import (
     FabbricatiRecord1,
@@ -31,7 +33,23 @@ def safe_cast(val, to_type, default=None):
         return default
 
 
-class Cuarcuiu(BaseModel):
+class CatastoBaseModel(BaseModel):
+    """Modello base per tutti i modelli Catasto che converte solo stringhe vuote in None."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def empty_strings_to_none(cls, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Converte solo stringhe vuote in None prima della validazione."""
+        if not isinstance(data, dict):
+            return data
+
+        for field_name, value in list(data.items()):
+            if value == "":  # Solo stringhe vuote, non liste o dizionari vuoti
+                data[field_name] = None
+        return data
+
+
+class Cuarcuiu(CatastoBaseModel):
     codice: str
     sezione: str
     immobile: int
@@ -130,7 +148,7 @@ class Cuarcuiu(BaseModel):
         )
 
 
-class Cuidenti(BaseModel):
+class Cuidenti(CatastoBaseModel):
     codice: str
     sezione: str
     immobile: int
@@ -161,7 +179,7 @@ class Cuidenti(BaseModel):
         )
 
 
-class Cuindiri(BaseModel):
+class Cuindiri(CatastoBaseModel):
     codice: str
     sezione: str
     immobile: int
@@ -192,7 +210,7 @@ class Cuindiri(BaseModel):
         )
 
 
-class Cuutilit(BaseModel):
+class Cuutilit(CatastoBaseModel):
     codice: str
     sezione: str
     immobile: int
@@ -221,7 +239,7 @@ class Cuutilit(BaseModel):
         )
 
 
-class Curiserv(BaseModel):
+class Curiserv(CatastoBaseModel):
     codice: str
     sezione: str
     immobile: int
@@ -244,7 +262,7 @@ class Curiserv(BaseModel):
         )
 
 
-class Ctpartic(BaseModel):
+class Ctpartic(CatastoBaseModel):
     codice: str
     sezione: str
     immobile: int
@@ -339,7 +357,7 @@ class Ctpartic(BaseModel):
         )
 
 
-class Ctdeduzi(BaseModel):
+class Ctdeduzi(CatastoBaseModel):
     codice: str
     sezione: str
     immobile: int
@@ -358,14 +376,14 @@ class Ctdeduzi(BaseModel):
         )
 
 
-class Ctriserv(BaseModel):
+class Ctriserv(CatastoBaseModel):
     codice: str
     sezione: str
     immobile: int
     tipo_imm: str
     progressiv: int
-    riserva: str
-    iscrizione: str
+    riserva: str | None
+    iscrizione: str | None
 
     def extract_from_model(dati_terreno: TerreniRecord3, dati_riserva: TerRiserva):
         return Ctriserv(
@@ -379,7 +397,7 @@ class Ctriserv(BaseModel):
         )
 
 
-class Ctporzio(BaseModel):
+class Ctporzio(CatastoBaseModel):
     codice: str
     sezione: str
     immobile: int
@@ -412,7 +430,7 @@ class Ctporzio(BaseModel):
         )
 
 
-class Cttitola(BaseModel):
+class Cttitola(CatastoBaseModel):
     codice: str
     sezione: str
     soggetto: int
@@ -487,7 +505,7 @@ class Cttitola(BaseModel):
         )
 
 
-class Ctfisica(BaseModel):
+class Ctfisica(CatastoBaseModel):
     codice: str
     sezione: str
     soggetto: int
@@ -516,7 +534,7 @@ class Ctfisica(BaseModel):
         )
 
 
-class Ctnonfis(BaseModel):
+class Ctnonfis(CatastoBaseModel):
     codice: str
     sezione: str
     soggetto: int

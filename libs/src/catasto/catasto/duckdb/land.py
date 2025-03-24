@@ -12,7 +12,10 @@ from catasto.schemas.catastodb.models import Ctdeduzi, Ctpartic, Ctporzio, Ctris
 
 
 async def load_terreni(
-    ter_filepath: str, duckdb_filepath: str, clean_db: bool, logger: BoundLogger = None
+    ter_filepath: str,
+    duckdb_filepath: str,
+    clean_tables: bool,
+    logger: BoundLogger = None,
 ) -> str:
     """
     Carica i dati dei terreni da un file .Ter in un database DuckDB.
@@ -20,7 +23,7 @@ async def load_terreni(
     Args:
         ter_filepath: Percorso al file .Ter
         duckdb_filepath: Percorso al file DuckDB
-        clean_db: Se True, cancella i dati esistenti nelle tabelle
+        clean_tables: Se True, cancella i dati esistenti nelle tabelle
         logger: Logger strutturato da utilizzare (se None, ne viene creato uno)
 
     Returns:
@@ -34,7 +37,7 @@ async def load_terreni(
         "load_started",
         input_file=ter_filepath,
         database=duckdb_filepath,
-        clean_db=clean_db,
+        clean_tables=clean_tables,
     )
 
     # Verifiche preliminari
@@ -152,7 +155,7 @@ async def load_terreni(
         """)
 
         # Se richiesto, pulisci le tabelle
-        if clean_db:
+        if clean_tables:
             logger.info("Pulizia delle tabelle richiesta")
             for table in ["ctpartic", "ctdeduzi", "ctriserv", "ctporzio"]:
                 duck_conn.execute(f"DELETE FROM ctcn.{table}")

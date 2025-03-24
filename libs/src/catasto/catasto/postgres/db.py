@@ -39,13 +39,7 @@ class DatabaseSynchronizer:
         self.duckdb_path = duckdb_path
         self.pg_conn_string = pg_conn_string
         self.schema = schema
-        self.tables = tables or [
-            "cuarcuiu",
-            "cuidenti",
-            "cuindiri",
-            "cuutilit",
-            "curiserv",
-        ]
+        self.tables = tables
         self.backup_base_dir = backup_base_dir
         self.duck_conn = None
         self.pg_dal = None
@@ -57,114 +51,114 @@ class DatabaseSynchronizer:
         self.pg_repos = {}
 
         # DDL delle tabelle PostgreSQL
-        self.postgres_ddl = {
-            "cuarcuiu": """
-            CREATE TABLE IF NOT EXISTS ctcn.cuarcuiu (
-                codice varchar(4) NOT NULL,
-                sezione varchar(1) NOT NULL,
-                immobile int8 NOT NULL,
-                tipo_imm varchar(1) NOT NULL,
-                progressiv int4 NOT NULL,
-                zona varchar(3) NULL,
-                categoria varchar(3) NULL,
-                classe varchar(2) NULL,
-                consistenz varchar(7) NULL,
-                superficie varchar(5) NULL,
-                rendita_l varchar(15) NULL,
-                rendita_e varchar(18) NULL,
-                lotto varchar(2) NULL,
-                edificio varchar(2) NULL,
-                scala varchar(2) NULL,
-                interno_1 varchar(3) NULL,
-                interno_2 varchar(3) NULL,
-                piano_1 varchar(4) NULL,
-                piano_2 varchar(4) NULL,
-                piano_3 varchar(4) NULL,
-                piano_4 varchar(4) NULL,
-                gen_eff varchar(10) NULL,
-                gen_regist varchar(10) NULL,
-                gen_tipo varchar(1) NULL,
-                gen_numero varchar(6) NULL,
-                gen_progre varchar(3) NULL,
-                gen_anno varchar(4) NULL,
-                con_eff varchar(10) NULL,
-                con_regist varchar(10) NULL,
-                con_tipo varchar(1) NULL,
-                con_numero varchar(6) NULL,
-                con_progre varchar(3) NULL,
-                con_anno varchar(4) NULL,
-                partita varchar(7) NULL,
-                annotazion varchar(200) NULL,
-                mutaz_iniz int4 NULL,
-                mutaz_fine int4 NULL,
-                prot_notif varchar(18) NULL,
-                data_notif varchar(8) NULL,
-                gen_causa varchar(3) NULL,
-                gen_descr varchar(100) NULL,
-                con_causa varchar(3) NULL,
-                con_descr varchar(100) NULL,
-                flag_class varchar(1) NULL,
-                CONSTRAINT cuarcuiu_pkey PRIMARY KEY (
-                    codice, sezione, immobile, tipo_imm, progressiv
-                )
-            );
-            """,
-            "cuidenti": """
-            CREATE TABLE IF NOT EXISTS ctcn.cuidenti (
-                codice varchar(4) NOT NULL,
-                sezione varchar(1) NOT NULL,
-                immobile int8 NOT NULL,
-                tipo_imm varchar(1) NOT NULL,
-                progressiv int4 NOT NULL,
-                sez_urbana varchar(3) NULL,
-                foglio varchar(4) NULL,
-                numero varchar(5) NULL,
-                denominato int4 NULL,
-                subalterno varchar(4) NULL,
-                edificiale varchar(1) NULL
-            );
-            """,
-            "cuindiri": """
-            CREATE TABLE IF NOT EXISTS ctcn.cuindiri (
-                codice varchar(4) NOT NULL,
-                sezione varchar(1) NOT NULL,
-                immobile int8 NOT NULL,
-                tipo_imm varchar(1) NOT NULL,
-                progressiv int4 NOT NULL,
-                toponimo int4 NULL,
-                indirizzo varchar(50) NULL,
-                civico1 varchar(6) NULL,
-                civico2 varchar(6) NULL,
-                civico3 varchar(6) NULL,
-                cod_strada varchar(5) NULL
-            );
-            """,
-            "cuutilit": """
-            CREATE TABLE IF NOT EXISTS ctcn.cuutilit (
-                codice varchar(4) NOT NULL,
-                sezione varchar(1) NOT NULL,
-                immobile int8 NOT NULL,
-                tipo_imm varchar(1) NOT NULL,
-                progressiv int4 NOT NULL,
-                sez_urbana varchar(3) NULL,
-                foglio varchar(4) NULL,
-                numero varchar(5) NULL,
-                denominato int4 NULL,
-                subalterno varchar(4) NULL
-            );
-            """,
-            "curiserv": """
-            CREATE TABLE IF NOT EXISTS ctcn.curiserv (
-                codice varchar(4) NOT NULL,
-                sezione varchar(1) NOT NULL,
-                immobile int8 NOT NULL,
-                tipo_imm varchar(1) NOT NULL,
-                progressiv int4 NOT NULL,
-                riserva varchar(1) NULL,
-                iscrizione varchar(7) NULL
-            );
-            """,
-        }
+        # self.postgres_ddl = {
+        #     "cuarcuiu": """
+        #     CREATE TABLE IF NOT EXISTS ctcn.cuarcuiu (
+        #         codice varchar(4) NOT NULL,
+        #         sezione varchar(1) NOT NULL,
+        #         immobile int8 NOT NULL,
+        #         tipo_imm varchar(1) NOT NULL,
+        #         progressiv int4 NOT NULL,
+        #         zona varchar(3) NULL,
+        #         categoria varchar(3) NULL,
+        #         classe varchar(2) NULL,
+        #         consistenz varchar(7) NULL,
+        #         superficie varchar(5) NULL,
+        #         rendita_l varchar(15) NULL,
+        #         rendita_e varchar(18) NULL,
+        #         lotto varchar(2) NULL,
+        #         edificio varchar(2) NULL,
+        #         scala varchar(2) NULL,
+        #         interno_1 varchar(3) NULL,
+        #         interno_2 varchar(3) NULL,
+        #         piano_1 varchar(4) NULL,
+        #         piano_2 varchar(4) NULL,
+        #         piano_3 varchar(4) NULL,
+        #         piano_4 varchar(4) NULL,
+        #         gen_eff varchar(10) NULL,
+        #         gen_regist varchar(10) NULL,
+        #         gen_tipo varchar(1) NULL,
+        #         gen_numero varchar(6) NULL,
+        #         gen_progre varchar(3) NULL,
+        #         gen_anno varchar(4) NULL,
+        #         con_eff varchar(10) NULL,
+        #         con_regist varchar(10) NULL,
+        #         con_tipo varchar(1) NULL,
+        #         con_numero varchar(6) NULL,
+        #         con_progre varchar(3) NULL,
+        #         con_anno varchar(4) NULL,
+        #         partita varchar(7) NULL,
+        #         annotazion varchar(200) NULL,
+        #         mutaz_iniz int4 NULL,
+        #         mutaz_fine int4 NULL,
+        #         prot_notif varchar(18) NULL,
+        #         data_notif varchar(8) NULL,
+        #         gen_causa varchar(3) NULL,
+        #         gen_descr varchar(100) NULL,
+        #         con_causa varchar(3) NULL,
+        #         con_descr varchar(100) NULL,
+        #         flag_class varchar(1) NULL,
+        #         CONSTRAINT cuarcuiu_pkey PRIMARY KEY (
+        #             codice, sezione, immobile, tipo_imm, progressiv
+        #         )
+        #     );
+        #     """,
+        #     "cuidenti": """
+        #     CREATE TABLE IF NOT EXISTS ctcn.cuidenti (
+        #         codice varchar(4) NOT NULL,
+        #         sezione varchar(1) NOT NULL,
+        #         immobile int8 NOT NULL,
+        #         tipo_imm varchar(1) NOT NULL,
+        #         progressiv int4 NOT NULL,
+        #         sez_urbana varchar(3) NULL,
+        #         foglio varchar(4) NULL,
+        #         numero varchar(5) NULL,
+        #         denominato int4 NULL,
+        #         subalterno varchar(4) NULL,
+        #         edificiale varchar(1) NULL
+        #     );
+        #     """,
+        #     "cuindiri": """
+        #     CREATE TABLE IF NOT EXISTS ctcn.cuindiri (
+        #         codice varchar(4) NOT NULL,
+        #         sezione varchar(1) NOT NULL,
+        #         immobile int8 NOT NULL,
+        #         tipo_imm varchar(1) NOT NULL,
+        #         progressiv int4 NOT NULL,
+        #         toponimo int4 NULL,
+        #         indirizzo varchar(50) NULL,
+        #         civico1 varchar(6) NULL,
+        #         civico2 varchar(6) NULL,
+        #         civico3 varchar(6) NULL,
+        #         cod_strada varchar(5) NULL
+        #     );
+        #     """,
+        #     "cuutilit": """
+        #     CREATE TABLE IF NOT EXISTS ctcn.cuutilit (
+        #         codice varchar(4) NOT NULL,
+        #         sezione varchar(1) NOT NULL,
+        #         immobile int8 NOT NULL,
+        #         tipo_imm varchar(1) NOT NULL,
+        #         progressiv int4 NOT NULL,
+        #         sez_urbana varchar(3) NULL,
+        #         foglio varchar(4) NULL,
+        #         numero varchar(5) NULL,
+        #         denominato int4 NULL,
+        #         subalterno varchar(4) NULL
+        #     );
+        #     """,
+        #     "curiserv": """
+        #     CREATE TABLE IF NOT EXISTS ctcn.curiserv (
+        #         codice varchar(4) NOT NULL,
+        #         sezione varchar(1) NOT NULL,
+        #         immobile int8 NOT NULL,
+        #         tipo_imm varchar(1) NOT NULL,
+        #         progressiv int4 NOT NULL,
+        #         riserva varchar(1) NULL,
+        #         iscrizione varchar(7) NULL
+        #     );
+        #     """,
+        # }
 
     async def initialize(self):
         """Inizializza le connessioni e i repository."""
@@ -810,6 +804,128 @@ class DatabaseSynchronizer:
             )
             raise e
 
+    async def _sync_ctpartic_with_mutation(self, entity_type: Type[BaseModel]):
+        """
+        Versione che combina le correzioni con la logica di aggiornamento
+        """
+        logger = self.logger.bind(action="sync_with_mutation")
+        try:
+            # Ottieni i repository
+            duck_repo = self._get_duck_repository(entity_type, "ctpartic")
+            pg_repo = self._get_pg_repository(entity_type, "ctpartic")
+
+            # Usa una query diretta invece di find_all
+            schema, table = duck_repo.table_name.split(".")
+            query = f"SELECT * FROM {duck_repo.table_name}"
+            results = duck_repo.connection.execute(query).fetchall()
+
+            # Ottieni i nomi delle colonne
+            cols_query = f"SELECT column_name FROM information_schema.columns WHERE table_schema = '{schema}' AND table_name = '{table}'"
+            columns = [
+                col[0] for col in duck_repo.connection.execute(cols_query).fetchall()
+            ]
+
+            # Crea i record manualmente
+            duck_records = []
+            for row in results:
+                record_dict = dict(zip(columns, row))
+                duck_records.append(entity_type(**record_dict))
+
+            # Ottieni i tipi di colonna
+            column_types_query = f"""
+            SELECT column_name, data_type 
+            FROM postgres_scan(
+                '{self.pg_conn_string}',
+                'information_schema',
+                'columns'
+            )
+            WHERE table_schema = '{self.schema}' AND table_name = 'ctpartic'
+            ORDER BY ordinal_position;
+            """
+            column_types = {
+                row[0]: row[1]
+                for row in self.duck_conn.execute(column_types_query).fetchall()
+            }
+
+            # Processa ogni record
+            for duck_record in duck_records:
+                # Prepara i dati per PostgreSQL
+                record_dict = await self._prepare_entity_for_pg(
+                    duck_record, "ctpartic", column_types
+                )
+
+                # Crea una nuova istanza dell'entità
+                record = entity_type(**record_dict)
+
+                # Crea un dizionario con le chiavi primarie
+                pk_dict = {pk: record_dict[pk] for pk in duck_repo.primary_keys}
+
+                # Verifica se il record esiste già in PostgreSQL
+                pg_record = await pg_repo.find_by_id(pk_dict)
+                if not pg_record:
+                    # Approccio semplificato: cerca direttamente il record precedente
+                    prev_pk_dict = pk_dict.copy()
+                    prev_pk_dict["progressiv"] = pk_dict["progressiv"] - 1
+
+                    # Cerca il record precedente (potrebbe essere None)
+                    try:
+                        prev_record = await pg_repo.find_by_id(prev_pk_dict)
+                    except Exception as e:
+                        logger.warning(
+                            f"Errore cercando il record precedente: {str(e)}"
+                        )
+                        prev_record = None
+
+                    # Se trovato e il record corrente ha mutaz_iniz, aggiorna
+                    if (
+                        prev_record
+                        and hasattr(record, "mutaz_iniz")
+                        and record.mutaz_iniz is not None
+                        and hasattr(prev_record, "mutaz_fine")
+                        and prev_record.mutaz_fine is None
+                    ):
+                        # Converti in dizionario usando il metodo sicuro
+                        try:
+                            prev_record_dict = prev_record.model_dump()
+                            prev_record_dict["mutaz_fine"] = record.mutaz_iniz
+
+                            # Crea una nuova istanza dell'entità
+                            updated_prev_record = entity_type(**prev_record_dict)
+
+                            # Aggiorna il record
+                            await pg_repo.update(updated_prev_record)
+                            self.stats["updated"] += 1
+                            logger.info(
+                                "updated_previous_record",
+                                table="ctpartic",
+                                progressiv=prev_record.progressiv,
+                                mutaz_fine=record.mutaz_iniz,
+                            )
+                        except Exception as e:
+                            logger.warning(
+                                f"Errore aggiornando il record precedente: {str(e)}"
+                            )
+
+                    # Inserisci il nuovo record
+                    await pg_repo.insert(record)
+                    self.stats["inserted"] += 1
+                    logger.info(
+                        "inserted_new_record",
+                        table="ctpartic",
+                        progressiv=record.progressiv,
+                    )
+
+            return
+
+        except Exception as e:
+            # Log dettagliato dell'errore
+            logger.error(
+                "error_in_sync_ctpartic",
+                error_type=type(e).__name__,
+                error_message=str(e),
+            )
+            raise e
+
     async def _sync_related_table(self, table_name: str, entity_type: Type[BaseModel]):
         """
         Sincronizza una tabella correlata.
@@ -1101,6 +1217,14 @@ class DatabaseSynchronizer:
         """
         logger = self.logger.bind(operation="sync_database")
         logger.info("starting_sync", tables=list(entity_types.keys()))
+
+        if "ctpartic" in entity_types:
+            from catasto.postgres.land import update_terreni
+
+            result = await update_terreni(syncer=self, entity_types=entity_types)
+            breakpoint()
+            logger.info("terreni", success=result["success"], stats=result["stats"])
+            return result
 
         # Inizia una transazione nel database PostgreSQL
         transaction = None
