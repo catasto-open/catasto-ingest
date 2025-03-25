@@ -79,17 +79,17 @@ class SoggettiRecordPrivatePerson(BaseRecord):
     cognome: Annotated[str, Field(min_length=1, max_length=50, alias="COGNOME")]
     nome: Annotated[str, Field(min_length=1, max_length=50, alias="NOME")]
     sesso: Annotated[
-        SessoEnum, Field(..., alias="SESSO")
+        OptionalStr, Field(default=None, alias="SESSO")
     ]  # Deve essere "1" per i maschi e "2" per le femmine
     data_di_nascita: Annotated[str, Field(max_length=8, alias="DATA DI NASCITA")]
     luogo_di_nascita: Annotated[
-        str, Field(min_length=4, max_length=4, alias="LUOGO DI NASCITA")
+        OptionalStr, Field(default=None, max_length=4, alias="LUOGO DI NASCITA")
     ]
     codice_fiscale: Annotated[
-        str, Field(min_length=16, max_length=16, alias="CODICE FISCALE")
+        OptionalStr, Field(default=None, max_length=16, alias="CODICE FISCALE")
     ]
     indicazioni_supplementari: Annotated[
-        str, Field(default=None, max_length=16, alias="INDICAZIONI SUPPLEMENTARI")
+        str, Field(default=None, max_length=100, alias="INDICAZIONI SUPPLEMENTARI")
     ]
 
     @field_validator("tipo_soggetto")
@@ -102,9 +102,10 @@ class SoggettiRecordPrivatePerson(BaseRecord):
     @field_validator("sesso")
     @classmethod
     def check_sesso(cls, v):
-        if v.value not in ["1", "2"]:
-            raise ValueError("sesso deve essere 1 o 2")
-        return v.value
+        if v:
+            if v not in ["1", "2"]:
+                raise ValueError("sesso se esiste deve essere 1 o 2")
+        return v
 
 
 class SoggettiRecordGiuridicPerson(BaseRecord):
@@ -114,9 +115,9 @@ class SoggettiRecordGiuridicPerson(BaseRecord):
     denominazione: Annotated[
         str, Field(min_length=1, max_length=150, alias="DEONOMINAZIONE")
     ]
-    sede: Annotated[str, Field(min_length=4, max_length=4, alias="SEDE")]
+    sede: Annotated[OptionalStr, Field(default=None, max_length=4, alias="SEDE")]
     codice_fiscale: Annotated[
-        str, Field(min_length=11, max_length=11, alias="CODICE FISCALE")
+        OptionalStr, Field(default=None, max_length=11, alias="CODICE FISCALE")
     ]
 
     @field_validator("tipo_soggetto")

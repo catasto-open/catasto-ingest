@@ -10,20 +10,14 @@ from ..building import (
     FabbricatiRecord5,
     Identificativo,
     Indirizzo,
-    UtilitaComune,
 )
 from ..building import Riserva as FabRiserva
+from ..building import UtilitaComune
 from ..entitlement import Titolarita
-from ..land import (
-    Deduzione,
-    Porzione,
-    TerreniRecord1,
-    TerreniRecord2,
-    TerreniRecord3,
-    TerreniRecord4,
-)
+from ..land import Deduzione, Porzione
 from ..land import Riserva as TerRiserva
-from ..subject import SoggettiModel
+from ..land import TerreniRecord1, TerreniRecord2, TerreniRecord3, TerreniRecord4
+from ..subject import SoggettiRecordGiuridicPerson, SoggettiRecordPrivatePerson
 
 
 def safe_cast(val, to_type, default=None):
@@ -510,15 +504,15 @@ class Ctfisica(CatastoBaseModel):
     sezione: str
     soggetto: int
     tipo_sog: str
-    cognome: str
-    nome: str
-    sesso: str
-    data: str
-    luogo: str
-    codfiscale: str
-    supplement: str
+    cognome: str | None
+    nome: str | None
+    sesso: str | None
+    data: str | None
+    luogo: str | None
+    codfiscale: str | None
+    supplement: str | None
 
-    def extract_from_model(dati_soggetto: SoggettiModel):
+    def extract_from_model(dati_soggetto: SoggettiRecordPrivatePerson):
         return Ctfisica(
             codice=dati_soggetto.codice_amministrativo,
             sezione=dati_soggetto.sezione,
@@ -530,7 +524,7 @@ class Ctfisica(CatastoBaseModel):
             data=dati_soggetto.data_di_nascita,
             luogo=dati_soggetto.luogo_di_nascita,
             codfiscale=dati_soggetto.codice_fiscale,
-            supplement=dati_soggetto.info_suppl,
+            supplement=dati_soggetto.indicazioni_supplementari,
         )
 
 
@@ -539,11 +533,11 @@ class Ctnonfis(CatastoBaseModel):
     sezione: str
     soggetto: int
     tipo_sog: str
-    codfiscale: str
-    denominaz: str
-    sede: str
+    codfiscale: str | None
+    denominaz: str | None
+    sede: str | None
 
-    def extract_from_model(dati_soggetto: SoggettiModel):
+    def extract_from_model(dati_soggetto: SoggettiRecordGiuridicPerson):
         return Ctnonfis(
             codice=dati_soggetto.codice_amministrativo,
             sezione=dati_soggetto.sezione,

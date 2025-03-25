@@ -3,6 +3,7 @@ from pathlib import Path
 
 from catasto.duckdb.building import load_fabbricati
 from catasto.duckdb.land import load_terreni
+from catasto.duckdb.subject import load_soggetti
 from prefect import flow, get_run_logger, task
 
 
@@ -44,7 +45,14 @@ def load_sog_file(
     duckdb_filepath: str,
     clean_tables: bool,
 ):
-    pass
+    db_path = asyncio.run(
+        load_soggetti(
+            sog_filepath=sog_filepath,
+            duckdb_filepath=duckdb_filepath,
+            clean_tables=clean_tables,
+        )
+    )
+    return db_path
 
 
 @task(name="Load TIT file to CTCN", log_prints=True, tags="CTCN")

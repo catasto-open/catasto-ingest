@@ -75,6 +75,7 @@ if __name__ == "__main__":
     ddb_file = ctcn_flow(
         fab_files=local_sorted_files["FAB"],
         ter_files=local_sorted_files["TER"],
+        sog_files=local_sorted_files["SOG"],
         catasto_db="/tmp/catasto.duckdb",
         empty_db=True,
     )
