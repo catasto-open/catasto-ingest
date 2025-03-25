@@ -48,9 +48,9 @@ async def sync_duckdb_to_postgres():
             updated = stats["stats"]["updated"]
             inserted = stats["stats"]["inserted"]
             errors = stats["stats"]["errors"]
-            print(f"  - Record aggiornati: {updated}")
-            print(f"  - Record inseriti: {inserted}")
-            print(f"  - Errori: {errors}")
+            print(f"    - Record aggiornati: {updated}")
+            print(f"    - Record inseriti: {inserted}")
+            print(f"    - Errori: {errors}")
 
     except Exception as e:
         print(f"Errore durante la sincronizzazione: {str(e)}")

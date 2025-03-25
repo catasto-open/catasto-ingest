@@ -5,6 +5,7 @@ from smidt.watcher import FTPMinioObserver
 
 from flows.duckdb_loader import ctcn_flow
 from flows.smidt_decrypt import process_smidt_file_flow
+from flows.smidt_loader import ctcn_sync_flow
 from flows.smidt_prepare import download_and_sort_flow
 
 smidt_block = JSON.load("smidt-settings")
@@ -71,10 +72,13 @@ if __name__ == "__main__":
         minio_bucket=smidt_block.value["siscat_bucket"],
         secure=False,
     )
-    ctcn_flow(
     ddb_file = ctcn_flow(
         fab_files=local_sorted_files["FAB"],
         ter_files=local_sorted_files["TER"],
         catasto_db="/tmp/catasto.duckdb",
         empty_db=True,
+    )
+    ctcn_sync_flow(
+        source_db=ddb_file,
+        target_db="postgresql://catasto:catasto@localhost:5433/catasto",
     )

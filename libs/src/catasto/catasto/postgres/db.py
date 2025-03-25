@@ -2,8 +2,9 @@ import datetime
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Type
+from typing import Any, Dict, List
 from typing import Tuple as TupleType
+from typing import Type
 
 import duckdb
 import structlog
@@ -49,116 +50,6 @@ class DatabaseSynchronizer:
         # Attributi per memorizzare i repository
         self.duck_repos = {}
         self.pg_repos = {}
-
-        # DDL delle tabelle PostgreSQL
-        # self.postgres_ddl = {
-        #     "cuarcuiu": """
-        #     CREATE TABLE IF NOT EXISTS ctcn.cuarcuiu (
-        #         codice varchar(4) NOT NULL,
-        #         sezione varchar(1) NOT NULL,
-        #         immobile int8 NOT NULL,
-        #         tipo_imm varchar(1) NOT NULL,
-        #         progressiv int4 NOT NULL,
-        #         zona varchar(3) NULL,
-        #         categoria varchar(3) NULL,
-        #         classe varchar(2) NULL,
-        #         consistenz varchar(7) NULL,
-        #         superficie varchar(5) NULL,
-        #         rendita_l varchar(15) NULL,
-        #         rendita_e varchar(18) NULL,
-        #         lotto varchar(2) NULL,
-        #         edificio varchar(2) NULL,
-        #         scala varchar(2) NULL,
-        #         interno_1 varchar(3) NULL,
-        #         interno_2 varchar(3) NULL,
-        #         piano_1 varchar(4) NULL,
-        #         piano_2 varchar(4) NULL,
-        #         piano_3 varchar(4) NULL,
-        #         piano_4 varchar(4) NULL,
-        #         gen_eff varchar(10) NULL,
-        #         gen_regist varchar(10) NULL,
-        #         gen_tipo varchar(1) NULL,
-        #         gen_numero varchar(6) NULL,
-        #         gen_progre varchar(3) NULL,
-        #         gen_anno varchar(4) NULL,
-        #         con_eff varchar(10) NULL,
-        #         con_regist varchar(10) NULL,
-        #         con_tipo varchar(1) NULL,
-        #         con_numero varchar(6) NULL,
-        #         con_progre varchar(3) NULL,
-        #         con_anno varchar(4) NULL,
-        #         partita varchar(7) NULL,
-        #         annotazion varchar(200) NULL,
-        #         mutaz_iniz int4 NULL,
-        #         mutaz_fine int4 NULL,
-        #         prot_notif varchar(18) NULL,
-        #         data_notif varchar(8) NULL,
-        #         gen_causa varchar(3) NULL,
-        #         gen_descr varchar(100) NULL,
-        #         con_causa varchar(3) NULL,
-        #         con_descr varchar(100) NULL,
-        #         flag_class varchar(1) NULL,
-        #         CONSTRAINT cuarcuiu_pkey PRIMARY KEY (
-        #             codice, sezione, immobile, tipo_imm, progressiv
-        #         )
-        #     );
-        #     """,
-        #     "cuidenti": """
-        #     CREATE TABLE IF NOT EXISTS ctcn.cuidenti (
-        #         codice varchar(4) NOT NULL,
-        #         sezione varchar(1) NOT NULL,
-        #         immobile int8 NOT NULL,
-        #         tipo_imm varchar(1) NOT NULL,
-        #         progressiv int4 NOT NULL,
-        #         sez_urbana varchar(3) NULL,
-        #         foglio varchar(4) NULL,
-        #         numero varchar(5) NULL,
-        #         denominato int4 NULL,
-        #         subalterno varchar(4) NULL,
-        #         edificiale varchar(1) NULL
-        #     );
-        #     """,
-        #     "cuindiri": """
-        #     CREATE TABLE IF NOT EXISTS ctcn.cuindiri (
-        #         codice varchar(4) NOT NULL,
-        #         sezione varchar(1) NOT NULL,
-        #         immobile int8 NOT NULL,
-        #         tipo_imm varchar(1) NOT NULL,
-        #         progressiv int4 NOT NULL,
-        #         toponimo int4 NULL,
-        #         indirizzo varchar(50) NULL,
-        #         civico1 varchar(6) NULL,
-        #         civico2 varchar(6) NULL,
-        #         civico3 varchar(6) NULL,
-        #         cod_strada varchar(5) NULL
-        #     );
-        #     """,
-        #     "cuutilit": """
-        #     CREATE TABLE IF NOT EXISTS ctcn.cuutilit (
-        #         codice varchar(4) NOT NULL,
-        #         sezione varchar(1) NOT NULL,
-        #         immobile int8 NOT NULL,
-        #         tipo_imm varchar(1) NOT NULL,
-        #         progressiv int4 NOT NULL,
-        #         sez_urbana varchar(3) NULL,
-        #         foglio varchar(4) NULL,
-        #         numero varchar(5) NULL,
-        #         denominato int4 NULL,
-        #         subalterno varchar(4) NULL
-        #     );
-        #     """,
-        #     "curiserv": """
-        #     CREATE TABLE IF NOT EXISTS ctcn.curiserv (
-        #         codice varchar(4) NOT NULL,
-        #         sezione varchar(1) NOT NULL,
-        #         immobile int8 NOT NULL,
-        #         tipo_imm varchar(1) NOT NULL,
-        #         progressiv int4 NOT NULL,
-        #         riserva varchar(1) NULL,
-        #         iscrizione varchar(7) NULL
-        #     );
-        #     """,
-        # }
 
     async def initialize(self):
         """Inizializza le connessioni e i repository."""
@@ -560,127 +451,6 @@ class DatabaseSynchronizer:
                 result_dict[col_name] = value
 
         return result_dict
-
-    # async def _sync_cuarcuiu_with_mutation(self, entity_type: Type[BaseModel]):
-    #     """
-    #     Sincronizza la tabella cuarcuiu con la logica di mutazione.
-    #     Per ogni record, cerca il record con progressivo precedente e aggiorna
-    #     la colonna mutaz_fine se necessario.
-    #     """
-    #     try:
-    #         # Ottieni i repository
-    #         duck_repo = self._get_duck_repository(entity_type, "cuarcuiu")
-    #         pg_repo = self._get_pg_repository(entity_type, "cuarcuiu")
-
-    #         # Ottieni tutti i record dalla tabella cuarcuiu in DuckDB
-    #         duck_records = await duck_repo.find_all()
-
-    #         # Ottieni i tipi di colonna per ottimizzare le chiamate
-    #         column_types_query = f"""
-    #         SELECT column_name, data_type
-    #         FROM postgres_scan(
-    #             '{self.pg_conn_string}',
-    #             'SELECT column_name, data_type
-    #             FROM information_schema.columns
-    #             WHERE table_schema = ''{self.schema}'' AND table_name = ''cuarcuiu''
-    #             ORDER BY ordinal_position'
-    #         );
-    #         """
-    #         column_types = {
-    #             row[0]: row[1]
-    #             for row in self.duck_conn.execute(column_types_query).fetchall()
-    #         }
-
-    #         # Processa ogni record
-    #         for duck_record in duck_records:
-    #             # Prepara i dati per PostgreSQL
-    #             record_dict = await self._prepare_entity_for_pg(
-    #                 duck_record, "cuarcuiu", column_types
-    #             )
-
-    #             # Crea una nuova istanza dell'entità con i valori convertiti
-    #             record = entity_type(**record_dict)
-
-    #             # Crea un dizionario con le chiavi primarie
-    #             pk_dict = {pk: record_dict[pk] for pk in duck_repo.primary_keys}
-
-    #             # Verifica se il record esiste già in PostgreSQL
-    #             pg_record = await pg_repo.find_by_id(pk_dict)
-
-    #             if not pg_record:
-    #                 # Cerca il record con progressivo precedente
-    #                 # Clona le chiavi primarie ma con progressivo diminuito
-    #                 prev_pk_dict = pk_dict.copy()
-    #                 prev_pk_dict["progressiv"] = pk_dict["progressiv"] - 1
-
-    #                 # Crea una condizione personalizzata per trovare record con progressivo inferiore
-    #                 # e mutaz_fine NULL
-    #                 condition = (
-    #                     " AND ".join(
-    #                         [
-    #                             f"{pk} = :val_{i}"
-    #                             for i, pk in enumerate(duck_repo.primary_keys)
-    #                             if pk != "progressiv"
-    #                         ]
-    #                     )
-    #                     + " AND progressiv < :curr_progressiv AND mutaz_fine IS NULL"
-    #                 )
-
-    #                 params = {
-    #                     f"val_{i}": val
-    #                     for i, (pk, val) in enumerate(pk_dict.items())
-    #                     if pk != "progressiv"
-    #                 }
-    #                 params["curr_progressiv"] = pk_dict["progressiv"]
-
-    #                 # Cerca il record precedente
-    #                 prev_records = await pg_repo.find_by_custom_where(condition, params)
-
-    #                 # Ordina per progressivo decrescente e prendi il primo (il più recente)
-    #                 if (
-    #                     prev_records
-    #                     and hasattr(record, "mutaz_iniz")
-    #                     and record.mutaz_iniz is not None
-    #                 ):
-    #                     prev_records.sort(key=lambda x: x.progressiv, reverse=True)
-    #                     prev_record = prev_records[0]
-
-    #                     # Aggiorna il record precedente impostando mutaz_fine
-    #                     prev_record_dict = prev_record.model_dump()
-    #                     prev_record_dict["mutaz_fine"] = record.mutaz_iniz
-
-    #                     # Converti i valori per l'aggiornamento
-    #                     prev_updated_dict = await self._prepare_entity_for_pg(
-    #                         entity_type(**prev_record_dict), "cuarcuiu", column_types
-    #                     )
-
-    #                     # Crea una nuova istanza dell'entità e aggiornala
-    #                     updated_prev_record = entity_type(**prev_updated_dict)
-    #                     await pg_repo.update(updated_prev_record)
-    #                     self.stats["updated"] += 1
-    #                     self.logger.info(
-    #                         "updated_previous_record",
-    #                         table="cuarcuiu",
-    #                         progressiv=prev_record.progressiv,
-    #                         mutaz_fine=record.mutaz_iniz,
-    #                     )
-
-    #                 # Inserisci il nuovo record
-    #                 await pg_repo.insert(record)
-    #                 self.stats["inserted"] += 1
-    #                 self.logger.info(
-    #                     "inserted_new_record",
-    #                     table="cuarcuiu",
-    #                     progressiv=record.progressiv,
-    #                 )
-    #     except Exception as e:
-    #         # Log dettagliato dell'errore
-    #         self.logger.error(
-    #             "error_in_sync_cuarcuiu",
-    #             error_type=type(e).__name__,
-    #             error_message=str(e),
-    #         )
-    #         raise e
 
     async def _sync_cuarcuiu_with_mutation(self, entity_type: Type[BaseModel]):
         """
@@ -1234,44 +1004,15 @@ class DatabaseSynchronizer:
             from catasto.postgres.land import update_terreni
 
             result = await update_terreni(syncer=self, entity_types=entity_types)
-            breakpoint()
             logger.info("terreni", success=result["success"], stats=result["stats"])
             return result
 
-        # Inizia una transazione nel database PostgreSQL
-        transaction = None
-        try:
-            # Inizia la transazione
-            transaction = self.pg_dal.begin_transaction()
-            logger.info("transaction_started")
+        elif "cuarcuiu" in entity_types:
+            from catasto.postgres.building import update_fabbricati
 
-            # Esegui la sincronizzazione
-            # Prima sincronizza la tabella cuarcuiu con la logica di mutazione
-            if "cuarcuiu" in self.tables and "cuarcuiu" in entity_types:
-                await self._sync_cuarcuiu_with_mutation(entity_types["cuarcuiu"])
-
-            # Poi sincronizza le altre tabelle
-            for table in [
-                t for t in self.tables if t != "cuarcuiu" and t in entity_types
-            ]:
-                await self._sync_related_table(table, entity_types[table])
-
-            # Commit della transazione
-            transaction.commit()
-            logger.info("transaction_committed", stats=self.stats)
-
-            return {"success": True, "stats": self.stats}
-
-        except Exception as e:
-            # Rollback in caso di errore
-            if transaction:
-                transaction.rollback()
-                logger.error("transaction_rolled_back_due_to_error", error=str(e))
-
-            self.stats["errors"] += 1
-            logger.exception("sync_failed", error=str(e))
-
-            return {"success": False, "reason": "sync_error", "error": str(e)}
+            result = await update_fabbricati(syncer=self, entity_types=entity_types)
+            logger.info("fabbricati", success=result["success"], stats=result["stats"])
+            return result
 
     async def sync_database_with_backup(
         self, entity_types: Dict[str, Type[BaseModel]], validate_after_sync=True
