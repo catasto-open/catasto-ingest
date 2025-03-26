@@ -13,7 +13,7 @@ from catasto.duckdb.repository import T as TDDB
 from catasto.postgres.dal import PostgresDataAccessLayer
 from catasto.postgres.repository import PostgresRepository
 from catasto.postgres.repository import T as TPG
-from catasto.schemas.catastodb.models import Ctfisica, Ctnonfis
+from catasto.schemas.catastodb.models import Ctfisica, Ctnonfis, Cttitola
 from pydantic import BaseModel
 from sqlalchemy import text
 
@@ -105,6 +105,12 @@ class DatabaseSynchronizer:
                     "sezione",
                     "soggetto",
                     "tipo_sog",
+                ]
+            elif entity_type in [Cttitola]:
+                primary_keys = [
+                    "codice",
+                    "sezione",
+                    "identifica",
                 ]
             else:
                 primary_keys = [
@@ -907,6 +913,100 @@ class DatabaseSynchronizer:
             )
             raise e
 
+    async def _sync_cttitola_with_update(self, entity_type: Type[BaseModel]):
+        """
+        Versione che combina le correzioni con la logica di aggiornamento
+        """
+        logger = self.logger.bind(action="sync_with_update")
+        try:
+            # Ottieni i repository
+            duck_repo = self._get_duck_repository(entity_type, "cttitola")
+            pg_repo = self._get_pg_repository(entity_type, "cttitola")
+
+            # Usa una query diretta invece di find_all
+            schema, table = duck_repo.table_name.split(".")
+            query = f"SELECT * FROM {duck_repo.table_name}"
+            results = duck_repo.connection.execute(query).fetchall()
+
+            # Ottieni i nomi delle colonne
+            cols_query = f"SELECT column_name FROM information_schema.columns WHERE table_schema = '{schema}' AND table_name = '{table}'"
+            columns = [
+                col[0] for col in duck_repo.connection.execute(cols_query).fetchall()
+            ]
+
+            # Crea i record manualmente
+            duck_records = []
+            for row in results:
+                record_dict = dict(zip(columns, row))
+                duck_records.append(entity_type(**record_dict))
+
+            # Ottieni i tipi di colonna
+            column_types_query = f"""
+            SELECT column_name, data_type 
+            FROM postgres_scan(
+                '{self.pg_conn_string}',
+                'information_schema',
+                'columns'
+            )
+            WHERE table_schema = '{self.schema}' AND table_name = 'cttitola'
+            ORDER BY ordinal_position;
+            """
+            column_types = {
+                row[0]: row[1]
+                for row in self.duck_conn.execute(column_types_query).fetchall()
+            }
+
+            # Processa ogni record
+            for duck_record in duck_records:
+                # Prepara i dati per PostgreSQL
+                record_dict = await self._prepare_entity_for_pg(
+                    duck_record, "cttitola", column_types
+                )
+
+                # Crea una nuova istanza dell'entità
+                record = entity_type(**record_dict)
+
+                # Crea un dizionario con le chiavi primarie
+                pk_dict = {pk: record_dict[pk] for pk in duck_repo.primary_keys}
+
+                # Verifica se il record esiste già in PostgreSQL
+                pg_record = await pg_repo.find_by_id(pk_dict)
+                if pg_record:
+                    # Approccio semplificato se lo trova aggiorna altrimenti inserisce
+                    try:
+                        await pg_repo.update(record)
+                        self.stats["updated"] += 1
+                        logger.info(
+                            "updated_existing_record",
+                            table="cttitola",
+                            soggetto=record.soggetto,
+                            immobile=record.immobile,
+                        )
+                    except Exception as e:
+                        logger.warning(f"Errore aggiornando il record: {str(e)}")
+
+                else:
+                    # Inserisci il nuovo record
+                    await pg_repo.insert(record)
+                    self.stats["inserted"] += 1
+                    logger.info(
+                        "inserted_new_record",
+                        table="cttitola",
+                        soggetto=record.soggetto,
+                        immobile=record.immobile,
+                    )
+
+            return
+
+        except Exception as e:
+            # Log dettagliato dell'errore
+            logger.error(
+                "error_in_sync_cttitola",
+                error_type=type(e).__name__,
+                error_message=str(e),
+            )
+            raise e
+
     async def _sync_related_table(self, table_name: str, entity_type: Type[BaseModel]):
         """
         Sincronizza una tabella correlata.
@@ -1218,6 +1318,13 @@ class DatabaseSynchronizer:
 
             result = await update_soggetti(syncer=self, entity_types=entity_types)
             logger.info("soggetti", success=result["success"], stats=result["stats"])
+            return result
+
+        elif "cttitola" in entity_types:
+            from catasto.postgres.entitlement import update_titolarita
+
+            result = await update_titolarita(syncer=self, entity_types=entity_types)
+            logger.info("titolarita", success=result["success"], stats=result["stats"])
             return result
 
     async def sync_database_with_backup(

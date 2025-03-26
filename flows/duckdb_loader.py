@@ -2,6 +2,7 @@ import asyncio
 from pathlib import Path
 
 from catasto.duckdb.building import load_fabbricati
+from catasto.duckdb.entitlement import load_titolarita
 from catasto.duckdb.land import load_terreni
 from catasto.duckdb.subject import load_soggetti
 from prefect import flow, get_run_logger, task
@@ -61,7 +62,14 @@ def load_tit_file(
     duckdb_filepath: str,
     clean_tables: bool,
 ):
-    pass
+    db_path = asyncio.run(
+        load_titolarita(
+            tit_filepath=tit_filepath,
+            duckdb_filepath=duckdb_filepath,
+            clean_tables=clean_tables,
+        )
+    )
+    return db_path
 
 
 @flow(name="CTCN loading", log_prints=True)

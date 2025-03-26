@@ -158,16 +158,17 @@ class Titolarita(BaseRecord):
         ),
     ]
     tipo_nota_iniziale: Annotated[
-        str, Field(min_length=0, max_length=1, alias="TIPO NOTA INIZIALE")
+        OptionalStr, Field(default=None, max_length=1, alias="TIPO NOTA INIZIALE")
     ]
     numero_nota_iniziale: Annotated[
-        str, Field(min_length=0, max_length=6, alias="NUMERO NOTA INIZIALE")
+        OptionalStr, Field(default=None, max_length=6, alias="NUMERO NOTA INIZIALE")
     ]
     progressivo_nota_iniziale: Annotated[
-        str, Field(min_length=0, max_length=3, alias="PROGRESSIVO NOTA INIZIALE")
+        OptionalStr,
+        Field(default=None, max_length=3, alias="PROGRESSIVO NOTA INIZIALE"),
     ]
     anno_nota_iniziale: Annotated[
-        str, Field(min_length=4, max_length=4, alias="ANNO NOTA INIZIALE")
+        OptionalStr, Field(default=None, max_length=4, alias="ANNO NOTA INIZIALE")
     ]
     data_registrazione_atti_iniziale: Annotated[
         OptionalStr,
@@ -336,7 +337,7 @@ class Titolarita(BaseRecord):
                 raise ValueError(f"Giorno non valido: {giorno}")
             if not (1 <= m <= 12):
                 raise ValueError(f"Mese non valido: {mese}")
-            if not (1900 <= a <= 2999):  # Intervallo ragionevole di anni
+            if not (1 <= a <= 2999):  # Intervallo ragionevole di anni
                 raise ValueError(f"Anno non valido: {anno}")
 
             # Prova a creare un oggetto datetime per verificare la validità completa

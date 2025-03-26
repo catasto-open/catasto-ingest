@@ -431,32 +431,32 @@ class Cttitola(CatastoBaseModel):
     tipo_sog: str
     immobile: int
     tipo_imm: str
-    diritto: str
-    titolo: str
-    numeratore: int
-    denominato: int
-    regime: str
-    rif_regime: int
-    gen_valida: str
-    gen_nota: str
-    gen_numero: str
-    gen_progre: str
-    gen_anno: str
-    gen_regist: str
-    partita: str
-    con_valida: str
-    con_nota: str
-    con_numero: str
-    con_progre: str
-    con_anno: str
-    con_regist: str
-    mutaz_iniz: int
-    mutaz_fine: int
+    diritto: str | None
+    titolo: str | None
+    numeratore: int | None
+    denominato: int | None
+    regime: str | None
+    rif_regime: int | None
+    gen_valida: str | None
+    gen_nota: str | None
+    gen_numero: str | None
+    gen_progre: str | None
+    gen_anno: str | None
+    gen_regist: str | None
+    partita: str | None
+    con_valida: str | None
+    con_nota: str | None
+    con_numero: str | None
+    con_progre: str | None
+    con_anno: str | None
+    con_regist: str | None
+    mutaz_iniz: int | None
+    mutaz_fine: int | None
     identifica: int
-    gen_causa: str
-    gen_descr: str
-    con_causa: str
-    con_descr: str
+    gen_causa: str | None
+    gen_descr: str | None
+    con_causa: str | None
+    con_descr: str | None
 
     def extract_from_model(dati_titolarita: Titolarita):
         return Cttitola(
@@ -472,19 +472,19 @@ class Cttitola(CatastoBaseModel):
             denominato=safe_cast(dati_titolarita.quota_denominatore, int, None),
             regime=safe_cast(dati_titolarita.regime, int, None),
             rif_regime=dati_titolarita.soggetto_di_riferimento,
-            gen_valida=dati_titolarita.data_di_validita00,
-            gen_nota=dati_titolarita.tipo_nota00,
-            gen_numero=dati_titolarita.numero_nota00,
-            gen_progre=dati_titolarita.progressivo_nota00,
-            gen_anno=dati_titolarita.anno_nota00,
-            gen_regist=dati_titolarita.data_registrazione_atti00,
+            gen_valida=dati_titolarita.data_di_validita_iniziale,
+            gen_nota=dati_titolarita.tipo_nota_iniziale,
+            gen_numero=dati_titolarita.numero_nota_iniziale,
+            gen_progre=dati_titolarita.progressivo_nota_iniziale,
+            gen_anno=dati_titolarita.anno_nota_iniziale,
+            gen_regist=dati_titolarita.data_registrazione_atti_iniziale,
             partita=dati_titolarita.partita,
-            con_valida=dati_titolarita.data_di_validita99,
-            con_nota=dati_titolarita.tipo_nota99,
-            con_numero=dati_titolarita.numero_nota99,
-            con_progre=dati_titolarita.progressivo_nota99,
-            con_anno=dati_titolarita.anno_nota99,
-            con_regist=dati_titolarita.data_registrazione_atti99,
+            con_valida=dati_titolarita.data_di_validita_finale,
+            con_nota=dati_titolarita.tipo_nota_finale,
+            con_numero=dati_titolarita.numero_nota_finale,
+            con_progre=dati_titolarita.progressivo_nota_finale,
+            con_anno=dati_titolarita.anno_nota_finale,
+            con_regist=dati_titolarita.data_di_validita_finale,
             mutaz_iniz=safe_cast(
                 dati_titolarita.identificativo_mutazione_iniziale, int, None
             ),
