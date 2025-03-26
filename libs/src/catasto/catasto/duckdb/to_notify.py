@@ -6,20 +6,28 @@ import psycopg2
 import structlog
 from structlog.stdlib import BoundLogger
 
-def load_ids_to_notify_to_reftree(
+def load_ids_to_notify_to_ancillary(
     duckdb_filepath: str,
     pg_conn_string: str,
+    pg_immobili_di_interesse_query: str,
     clean_tables: bool,
     logger: BoundLogger = None,
 ) -> str:
     """
-    Prepara la tabella con gli identificativi da notificare a reftree
+    Prepara la tabella con gli identificativi da notificare ad un sistema ancillare
     Viene lanciato alla fine dei task di aggiornamento
 
     Args:
         duckdb_filepath: Percorso al file DuckDB
         pg_conn_string: Connessione al db postgres con i dati del catasto
-        clean_tables: Se True (raccomandato se i contenuti passati sono già inviati alle code), cancella i dati esistenti nella tabella to_notify_reftree
+        pg_immobili_di_interesse_query: La query che contiene gli identificativi immobile di interesse (codice_comune,codice_immobile,tipo_immobile)
+            Es:
+                SELECT tit.codice as codice_comune,
+                tit.immobile as codice_immobile,
+                tit.tipo_imm as tipo_immobile
+                FROM ctcn.titolarita_qualcosa tit
+                GROUP BY tit.codice, tit.immobile, tit.tipo_imm;
+        clean_tables: Se True (raccomandato se i contenuti passati sono già inviati alle code), cancella i dati esistenti nella tabella to_notify_ancillary
         logger: Logger strutturato da utilizzare (se None, ne viene creato uno)
 
     Returns:
@@ -34,6 +42,7 @@ def load_ids_to_notify_to_reftree(
         pg_conn_string=pg_conn_string,
         database=duckdb_filepath,
         clean_tables=clean_tables,
+        pg_immobili_di_interesse_query=pg_immobili_di_interesse_query 
     )
 
     # Verifiche preliminari
@@ -54,9 +63,9 @@ def load_ids_to_notify_to_reftree(
         duck_conn.execute("CREATE SCHEMA IF NOT EXISTS ctcn")
 
         # Crea tutte le tabelle direttamente in DuckDB
-        logger.debug("Creazione della tabella to_notify_reftree")
+        logger.debug("Creazione della tabella to_notify_ancillary")
         duck_conn.execute("""
-        CREATE TABLE IF NOT EXISTS ctcn.to_notify_reftree (
+        CREATE TABLE IF NOT EXISTS ctcn.to_notify_ancillary (
             codice_immobile int8 NOT NULL,
             tipo_immobile varchar(1) NOT NULL,
             data_modifica varchar(10) NOT NULL,
@@ -68,17 +77,8 @@ def load_ids_to_notify_to_reftree(
         # Se richiesto, pulisci la tabella
         if clean_tables:
             logger.info("Pulizia della tabella richiesta")
-            duck_conn.execute(f"DELETE FROM ctcn.to_notify_reftree")
+            duck_conn.execute(f"DELETE FROM ctcn.to_notify_ancillary")
             logger.info("Tabella svuotata con successo")
-
-
-        pg_titolarita_query = """
-        SELECT tit.codice as codice_comune,
-        tit.immobile as codice_immobile,
-        tit.tipo_imm as tipo_immobile
-        FROM ctcn.titolarita_roma_capitale tit
-        GROUP BY tit.codice, tit.immobile, tit.tipo_imm;
-        """
 
         # Check PostgreSQL connection
         try:
@@ -89,9 +89,9 @@ def load_ids_to_notify_to_reftree(
             logger.error(f"PostgreSQL connection error: {e}")
             raise
 
-        # Create DuckDB table ctcn.titolarita_roma_capitale
+        # Create DuckDB table ctcn.immobili_di_interesse
         duck_conn.execute("""
-        CREATE TABLE IF NOT EXISTS ctcn.titolarita_roma_capitale (
+        CREATE TABLE IF NOT EXISTS ctcn.immobili_di_interesse (
             codice_comune varchar(4),
             codice_immobile int8,
             tipo_immobile varchar(1),
@@ -99,21 +99,21 @@ def load_ids_to_notify_to_reftree(
         )
         """)
 
-        # Clean and populate titolarita_roma_capitale
-        logger.debug("Populating titolarita_roma_capitale from PostgreSQL")
+        # Clean and populate immobili_di_interesse
+        logger.debug("Populating immobili_di_interesse from PostgreSQL")
         with psycopg2.connect(pg_conn_string) as pg_conn:
             with pg_conn.cursor() as cur:
-                cur.execute(pg_titolarita_query)
+                cur.execute(pg_immobili_di_interesse_query)
                 rows = cur.fetchall()
 
         if clean_tables:
-            duck_conn.execute("DELETE FROM ctcn.titolarita_roma_capitale")
+            duck_conn.execute("DELETE FROM ctcn.immobili_di_interesse")
 
         duck_conn.executemany(
-            "INSERT INTO ctcn.titolarita_roma_capitale VALUES (?, ?, ?)",
+            "INSERT INTO ctcn.immobili_di_interesse VALUES (?, ?, ?)",
             rows
         )
-        logger.info(f"Inserted {len(rows)} rows into titolarita_roma_capitale")
+        logger.info(f"Inserted {len(rows)} rows into immobili_di_interesse")
 
         # Utility function to check existence of DuckDB tables
         def duckdb_table_exists(connection, schema, table):
@@ -121,10 +121,10 @@ def load_ids_to_notify_to_reftree(
             result = connection.execute(query, [schema, table]).fetchone()
             return result[0] > 0
 
-        # Insert records into ctcn.to_notify_reftree from ctcn.ctpartic
+        # Insert records into ctcn.to_notify_ancillary from ctcn.ctpartic
         if duckdb_table_exists(duck_conn, 'ctcn', 'ctpartic'):
             duck_conn.execute("""
-                INSERT INTO ctcn.to_notify_reftree (codice_immobile, tipo_immobile, data_modifica, tipo_operazione)
+                INSERT INTO ctcn.to_notify_ancillary (codice_immobile, tipo_immobile, data_modifica, tipo_operazione)
                 SELECT DISTINCT immobile, tipo_imm, gen_eff,
                     CASE
                         WHEN gen_causa IN ('FRZ', '033') THEN 'FRAZIONAMENTO'
@@ -132,9 +132,9 @@ def load_ids_to_notify_to_reftree(
                     END
                 FROM ctcn.ctpartic
                 WHERE (codice, immobile, tipo_imm) IN (
-                    SELECT codice_comune, codice_immobile, tipo_immobile FROM ctcn.titolarita_roma_capitale
+                    SELECT codice_comune, codice_immobile, tipo_immobile FROM ctcn.immobili_di_interesse
                 ) AND NOT EXISTS (
-                    SELECT 1 FROM ctcn.to_notify_reftree tnr
+                    SELECT 1 FROM ctcn.to_notify_ancillary tnr
                     WHERE tnr.codice_immobile = ctpartic.immobile
                     AND tnr.tipo_immobile = ctpartic.tipo_imm
                     AND tnr.data_modifica = ctpartic.gen_eff
@@ -147,7 +147,7 @@ def load_ids_to_notify_to_reftree(
         # Insert records from ctcn.cuarcuiu
         if duckdb_table_exists(duck_conn, 'ctcn', 'cuarcuiu'):
             duck_conn.execute("""
-                INSERT INTO ctcn.to_notify_reftree (codice_immobile, tipo_immobile, data_modifica, tipo_operazione)
+                INSERT INTO ctcn.to_notify_ancillary (codice_immobile, tipo_immobile, data_modifica, tipo_operazione)
                 SELECT DISTINCT immobile, tipo_imm, gen_eff,
                     CASE
                         WHEN gen_causa IN ('FRZ', 'FRV', 'FRF') THEN 'FRAZIONAMENTO'
@@ -156,9 +156,9 @@ def load_ids_to_notify_to_reftree(
                     END
                 FROM ctcn.cuarcuiu
                 WHERE (codice, immobile, tipo_imm) IN (
-                    SELECT codice_comune, codice_immobile, tipo_immobile FROM ctcn.titolarita_roma_capitale
+                    SELECT codice_comune, codice_immobile, tipo_immobile FROM ctcn.immobili_di_interesse
                 ) AND NOT EXISTS (
-                    SELECT 1 FROM ctcn.to_notify_reftree tnr
+                    SELECT 1 FROM ctcn.to_notify_ancillary tnr
                     WHERE tnr.codice_immobile = cuarcuiu.immobile
                     AND tnr.tipo_immobile = cuarcuiu.tipo_imm
                     AND tnr.data_modifica = cuarcuiu.gen_eff
@@ -171,13 +171,13 @@ def load_ids_to_notify_to_reftree(
         # Insert records from ctcn.cttitola
         if duckdb_table_exists(duck_conn, 'ctcn', 'cttitola'):
             duck_conn.execute("""
-                INSERT INTO ctcn.to_notify_reftree (codice_immobile, tipo_immobile, data_modifica, tipo_operazione)
+                INSERT INTO ctcn.to_notify_ancillary (codice_immobile, tipo_immobile, data_modifica, tipo_operazione)
                 SELECT DISTINCT immobile, tipo_imm, gen_valida, NULL
                 FROM ctcn.cttitola
                 WHERE (codice, immobile, tipo_imm) IN (
-                    SELECT codice_comune, codice_immobile, tipo_immobile FROM ctcn.titolarita_roma_capitale
+                    SELECT codice_comune, codice_immobile, tipo_immobile FROM ctcn.immobili_di_interesse
                 ) AND NOT EXISTS (
-                    SELECT 1 FROM ctcn.to_notify_reftree tnr
+                    SELECT 1 FROM ctcn.to_notify_ancillary tnr
                     WHERE tnr.codice_immobile = cttitola.immobile
                     AND tnr.tipo_immobile = cttitola.tipo_imm
                     AND tnr.data_modifica = cttitola.gen_valida
@@ -188,8 +188,8 @@ def load_ids_to_notify_to_reftree(
             logger.warning(f"The table cttitola is missing")
 
         # Final report
-        final_count = duck_conn.execute("SELECT COUNT(*) FROM ctcn.to_notify_reftree").fetchone()[0]
-        logger.info(f"Total records in to_notify_reftree: {final_count}")
+        final_count = duck_conn.execute("SELECT COUNT(*) FROM ctcn.to_notify_ancillary").fetchone()[0]
+        logger.info(f"Total records in to_notify_ancillary: {final_count}")
 
         duration = time.time() - start_time
         logger.info("load_completed", duration=duration)

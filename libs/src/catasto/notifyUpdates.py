@@ -22,7 +22,7 @@ async def publish_record(js, duck_conn, record):
         sent_on = datetime.utcnow().isoformat()
         duck_conn.execute(
             """
-            UPDATE ctcn.to_notify_reftree
+            UPDATE ctcn.to_notify_ancillary
             SET sent_on = ?
             WHERE codice_immobile = ? AND tipo_immobile = ? AND data_modifica = ?
             """,
@@ -37,11 +37,11 @@ async def publish_record(js, duck_conn, record):
 async def push_from_duckdb_to_nats(duckdb_filepath, nats_endpoint):
     """
     Invia gli identificativi aggiornati al NATS
-    Quando viene lanciato la tabella to_notify_reftree deve essere già stata popolata in duckdb_filepath
+    Quando viene lanciato la tabella to_notify_ancillary deve essere già stata popolata in duckdb_filepath
 
     Args:
         duckdb_filepath: Percorso al file DuckDB
-        nats_endpoint: Connessione al db postgres con i dati del catasto
+        nats_endpoint: Connessione al db postgres con i dati del catasto (tipo nats://localhost:4222)
 
     """
     nc = await nats.connect(nats_endpoint)
@@ -51,9 +51,9 @@ async def push_from_duckdb_to_nats(duckdb_filepath, nats_endpoint):
 
         tasks = []
         with duckdb.connect(duckdb_filepath) as duck_conn:
-            duck_conn.execute("ALTER TABLE ctcn.to_notify_reftree ADD COLUMN IF NOT EXISTS sent_on TIMESTAMP")
+            duck_conn.execute("ALTER TABLE ctcn.to_notify_ancillary ADD COLUMN IF NOT EXISTS sent_on TIMESTAMP")
 
-            rows = duck_conn.execute("SELECT codice_immobile, tipo_immobile, data_modifica, tipo_operazione FROM ctcn.to_notify_reftree WHERE sent_on IS NULL").fetchdf()
+            rows = duck_conn.execute("SELECT codice_immobile, tipo_immobile, data_modifica, tipo_operazione FROM ctcn.to_notify_ancillary WHERE sent_on IS NULL").fetchdf()
 
             for _, row in rows.iterrows():
                 record = {
