@@ -1,6 +1,6 @@
 import zipfile
 from pathlib import Path
-from prefect import flow, task
+from prefect import flow, task, get_run_logger
 from pyfiglet import figlet_format
 
 from sister.storage import InMemoryArchiveStorage
@@ -36,13 +36,14 @@ def create_inmemory_archive(archive: str):
 
 
 @flow
-def sister_pipeline(msg: str):
+def sister_pipeline(msg: str, log_prints=True):
     message = make_message(message=msg)
-    print(message)
+    logger = get_run_logger()
+    logger.info(message)
     zip_file = make_zipfile()
-    print(zip_file[0])
+    logger.info(f"zip filename {zip_file[0]}")
     inmemorydir = create_inmemory_archive(archive=zip_file[0])
-    print(inmemorydir)
+    logger.info(f"Inmemory dir {inmemorydir}")
 
 
 if __name__ == "__main__":

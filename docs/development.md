@@ -125,39 +125,42 @@ For development and testing purposes let's make it publicly available. Click on 
 
 Let's select `Public` from the dropdown list and finally click on the `Set` button. The `prefect-flows` bucket is now ready to store flows deployed in Prefect.
 
-#### Deployment of a flow in Prefect
+#### Create a work pool in Prefect
 
-In the repository we placed a simple prefect flow. The code is in the python file `flows/demo.py` and the flow is named `prefect flow`. That name will be used to display the flow in Prefect after the deployment process. The code is very simple and doesn't require additional dependencies but it simulates a whole ETL process and prove that Prefect is working properly in development.
+In order to deploy a flow Prefect needs to know the type of infrastructure which will be used to do that.
+In Prefect this can be accomplished in the [Work Pools](http://prefect:4200/work-pools) menu in the left side of the administration console:
 
-```python
-from prefect import task, flow
+![Prefect Work Pools Page](img/prefect_work_pools_page.png)
 
-# Define tasks using the @task decorator
-@task(name="extract data", log_prints=True, tags="extract")
-def extract_data():
-    return [1, 2, 3, 4, 5]
+Click on the `+` button close to the page title:
 
-@task(name="transform data", log_prints=True, tags="transform")
-def transform_data(data):
-    return [x * 2 for x in data]
+![Prefect Work Pool create page](img/prefect_work_pool_create_page.png)
 
-@task(name="load data", log_prints=True, tags="load")
-def load_data(transformed_data):
-    print("Transformed Data:", transformed_data)
+For now let's select the `Process` as the `Infrastructure Type` for the flows' execution:
 
-# Create a flow
-@flow(name="prefect flow")
-def prefect_flow():
-    data = extract_data()
-    transformed = transform_data(data)
-    load_data(transformed)
+![Prefect Work Pool Infrastructure Type](img/prefect_work_pool_infrastructure_type.png)
 
-if __name__ == "__main__":
-    prefect_flow()
-```
+Then click the `Next` button:
+
+![Prefect Work Pool Details](img/prefect_work_pool_details.png)
+
+Fill the mandatory input name with `default` as the value that will be used in our deployment and then click the `Next` button:
+
+![Prefect Work Pool Configuration Defaults](img/prefect_work_pool_configuration.png)
+![Prefect Work Pool Configuration Creation](img/prefect_work_pool_configuration_create.png)
+
+Then click the `Create` button without altering the default settings for now.
+
+Finally the `default` work pool has been created but we need to start it as suggested in its page:
+
+![Prefect Work Pool Configuration Creation](img/prefect_work_pool_default_complete.png)
+
+#### Start the default Work Pool
+
+In the previous section we have decided to use the Prefect server as the worker where to run the flows and so we have to start the work pool there.
 
 !!! Warning
-    Despite you are accessing the Prefect GUI in your host machine, you have to remember that the Prefect API are only available in the docker network `prefect-network` of the composition. So the Prefect client must be configured within a container which is connected to that network.
+    Despite you are accessing the Prefect GUI in your host machine, you have to remember that the Prefect API endpoints are only available in the docker network `prefect-network` of the composition. So the Prefect client must be configured within a container which is connected to that network.
 
 The composition already provides a `cli` service to mount your local flows to the container and execute the deployment script . It's just a command away from the container execution of a bash shell where you can run the deployment script. Use the following command to go into the container:
 
@@ -437,7 +440,9 @@ root@44e5f45ec73e:~/catasto#
 <!-- termynal -->
 ```shell
 $ poetry install
+Installing dependencies from lock file
 
+Package operations: 154 installs, 0 updates, 0 removals
 ... # not displayed to save space
   • Installing prefect (2.14.16)
   • Installing prompt-toolkit (3.0.43)
@@ -458,6 +463,11 @@ Installing the current project: catasto-ingest (0.1.0)
 
 - The third step is to activate the virtual environment:
 
+!!! Warning
+    If you are running a `poetry` version above `2.0` then `poetry shell` is no longer available and a virtual environment is already activated and might be verified with the command `poetry env list`.
+
+Optionally with poetry `<2.0.0`:
+
 <!-- termynal -->
 ```shell
 $ poetry shell
@@ -471,19 +481,112 @@ root@44e5f45ec73e:~/catasto# . /root/catasto/.venv/bin/activate
 
 <!-- termynal -->
 ```shell
-(catasto-ingest-py3.10) root@44e5f45ec73e:~/catasto# prefect config set PREFECT_API_URL=http://prefect:4200/api
+root@44e5f45ec73e:~/catasto# poetry run prefect config set PREFECT_API_URL=http://prefect:4200/api
 
 Set 'PREFECT_API_URL' to 'http://prefect:4200/api'.
 PREFECT_API_URL is also set by an environment variable which will override your config value. Run `unset PREFECT_API_URL` to clear it.
 Updated profile 'default'.
 ```
 
+You can start the `default` Work Pool with the following command:
+
+<!-- termynal -->
+```shell
+root@44e5f45ec73e:~/catasto# poetry run prefect worker start --pool "default"
+Discovered type 'process' for work pool 'default'.
+Worker 'ProcessWorker 26800af3-904c-4a08-802a-c23f8c7e0405' started!
+```
+
+The `default` Work Pool is now ready to be used for deployments:
+
+![Prefect Work Pool ready](img/prefect_work_pool_ready.png)
+
+#### Deployment of a flow in Prefect
+
+In the repository we placed a simple prefect flow. The code is in the python file `flows/demo.py` and the flow is named `prefect flow`. That name will be used to display the flow in Prefect after the deployment process. The code is very simple and doesn't require additional dependencies but it simulates a whole ETL process and proves that Prefect is working properly in development.
+
+```python
+from prefect import task, flow
+
+# Define tasks using the @task decorator
+@task(name="extract data", log_prints=True, tags="extract")
+def extract_data():
+    return [1, 2, 3, 4, 5]
+
+@task(name="transform data", log_prints=True, tags="transform")
+def transform_data(data):
+    return [x * 2 for x in data]
+
+@task(name="load data", log_prints=True, tags="load")
+def load_data(transformed_data):
+    print("Transformed Data:", transformed_data)
+
+# Create a flow
+@flow(name="prefect flow")
+def prefect_flow():
+    data = extract_data()
+    transformed = transform_data(data)
+    load_data(transformed)
+
+if __name__ == "__main__":
+    prefect_flow()
+```
+
+As per the warning in the previous section we have to configure the Prefect client CLI in order to communicate with the API endpoints which are available docker network of the composition.
+
+The composition already provides a `cli` service to mount your local flows to the container and execute the deployment script . It's just a command away from the container execution of a bash shell where you can run the deployment script. Use the above commands in the previous section to go into the container.
+
 For the `demo.py` flow we have already created a deployment script `flows/deployments/demo_deployment.py` in python so you have to just execute it:
 
 <!-- termynal -->
 ```shell
-(catasto-ingest-py3.10) root@44e5f45ec73e:~/catasto# python flows/deployments/demo_deployment.py
+root@44e5f45ec73e:~/catasto# poetry run python flows/deployments/demo_deployment.py
+00:51:44.422 | INFO    | prefect.S3Bucket - Uploading from '/root/catasto/flows/carto.py' to the bucket 'prefect-flows' path 'flows/carto.py'.
+00:51:44.423 | INFO    | prefect.S3Bucket - Uploading from '/root/catasto/flows/__init__.py' to the bucket 'prefect-flows' path 'flows/__init__.py'.
+00:51:44.423 | INFO    | prefect.S3Bucket - Uploading from '/root/catasto/flows/first_test.py' to the bucket 'prefect-flows' path 'flows/first_test.py'.
+00:51:44.423 | INFO    | prefect.S3Bucket - Uploading from '/root/catasto/flows/smidt_wf.py' to the bucket 'prefect-flows' path 'flows/smidt_wf.py'.
+00:51:44.424 | INFO    | prefect.S3Bucket - Uploading from '/root/catasto/flows/simple_task.py' to the bucket 'prefect-flows' path 'flows/simple_task.py'.
+00:51:44.424 | INFO    | prefect.S3Bucket - Uploading from '/root/catasto/flows/demo.py' to the bucket 'prefect-flows' path 'flows/demo.py'.
+00:51:44.424 | INFO    | prefect.S3Bucket - Uploading from '/root/catasto/flows/__pycache__/demo.cpython-310.pyc' to the bucket 'prefect-flows' path 'flows/__pycache__/demo.cpython-310.pyc'.
+00:51:44.424 | INFO    | prefect.S3Bucket - Uploading from '/root/catasto/flows/__pycache__/carto.cpython-38.pyc' to the bucket 'prefect-flows' path 'flows/__pycache__/carto.cpython-38.pyc'.
+00:51:44.424 | INFO    | prefect.S3Bucket - Uploading from '/root/catasto/flows/__pycache__/simple_task.cpython-39.pyc' to the bucket 'prefect-flows' path 'flows/__pycache__/simple_task.cpython-39.pyc'.
+00:51:44.424 | INFO    | prefect.S3Bucket - Uploading from '/root/catasto/flows/__pycache__/first_test.cpython-38.pyc' to the bucket 'prefect-flows' path 'flows/__pycache__/first_test.cpython-38.pyc'.
+00:51:44.425 | INFO    | prefect.S3Bucket - Uploading from '/root/catasto/flows/__pycache__/__init__.cpython-310.pyc' to the bucket 'prefect-flows' path 'flows/__pycache__/__init__.cpython-310.pyc'.
+00:51:44.425 | INFO    | prefect.S3Bucket - Uploading from '/root/catasto/flows/__pycache__/demo.cpython-39.pyc' to the bucket 'prefect-flows' path 'flows/__pycache__/demo.cpython-39.pyc'.
+00:51:44.425 | INFO    | prefect.S3Bucket - Uploading from '/root/catasto/flows/__pycache__/simple_task.cpython-310.pyc' to the bucket 'prefect-flows' path 'flows/__pycache__/simple_task.cpython-310.pyc'.
+00:51:44.425 | INFO    | prefect.S3Bucket - Uploading from '/root/catasto/flows/__pycache__/smidt.cpython-310.pyc' to the bucket 'prefect-flows' path 'flows/__pycache__/smidt.cpython-310.pyc'.
+00:51:44.425 | INFO    | prefect.S3Bucket - Uploading from '/root/catasto/flows/deployments/simple_deployment.py' to the bucket 'prefect-flows' path 'flows/deployments/simple_deployment.py'.
+00:51:44.426 | INFO    | prefect.S3Bucket - Uploading from '/root/catasto/flows/deployments/__init__.py' to the bucket 'prefect-flows' path 'flows/deployments/__init__.py'.
+00:51:44.426 | INFO    | prefect.S3Bucket - Uploading from '/root/catasto/flows/deployments/demo_deployment.py' to the bucket 'prefect-flows' path 'flows/deployments/demo_deployment.py'.
+00:51:44.426 | INFO    | prefect.S3Bucket - Uploading from '/root/catasto/flows/deployments/demo.yaml' to the bucket 'prefect-flows' path 'flows/deployments/demo.yaml'.
+00:51:44.452 | WARNING | urllib3.connection - Failed to parse headers (url=http://minio:9000/prefect-flows/flows/smidt_wf.py): [MissingHeaderBodySeparatorDefect()], unparsed data: 'HTTP/1.1 200 OK\r\nAccept-Ranges: bytes\r\nContent-Length: 0\r\nETag: "232ec8813eefe426d4b344404be60d3a"\r\nServer: MinIO\r\nStrict-Transport-Security: max-age=31536000; includeSubDomains\r\nVary: Origin\r\nVary: Accept-Encoding\r\nX-Amz-Id-2: 411bc421bd2f80bc9878e776fea40bf4f4a112865b490a39fb326fa1e5ad1a8e\r\nX-Amz-Request-Id: 1817A5A3D513CDEE\r\nX-Content-Type-Options: nosniff\r\nX-Xss-Protection: 1; mode=block\r\nDate: Sun, 05 Jan 2025 00:51:44 GMT\r\n\r\n'
+Traceback (most recent call last):
+  File "/root/catasto/.venv/lib/python3.10/site-packages/urllib3/connection.py", line 510, in getresponse
+    assert_header_parsing(httplib_response.msg)
+  File "/root/catasto/.venv/lib/python3.10/site-packages/urllib3/util/response.py", line 88, in assert_header_parsing
+    raise HeaderParsingError(defects=defects, unparsed_data=unparsed_data)
+urllib3.exceptions.HeaderParsingError: [MissingHeaderBodySeparatorDefect()], unparsed data: 'HTTP/1.1 200 OK\r\nAccept-Ranges: bytes\r\nContent-Length: 0\r\nETag: "232ec8813eefe426d4b344404be60d3a"\r\nServer: MinIO\r\nStrict-Transport-Security: max-age=31536000; includeSubDomains\r\nVary: Origin\r\nVary: Accept-Encoding\r\nX-Amz-Id-2: 411bc421bd2f80bc9878e776fea40bf4f4a112865b490a39fb326fa1e5ad1a8e\r\nX-Amz-Request-Id: 1817A5A3D513CDEE\r\nX-Content-Type-Options: nosniff\r\nX-Xss-Protection: 1; mode=block\r\nDate: Sun, 05 Jan 2025 00:51:44 GMT\r\n\r\n'
+00:52:14.457 | WARNING | urllib3.connectionpool - Connection pool is full, discarding connection: minio. Connection pool size: 10
+00:52:14.459 | INFO    | prefect.S3Bucket - Uploaded 18 files from '/root/catasto/flows' to the bucket 'prefect-flows' path 'flows/deployments/demo.yaml'
+Successfully created/updated all deployments!
 
+                        Deployments
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┓
+┃ Name                                 ┃ Status  ┃ Details ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━┩
+│ prefect flow/Prefect flow deployment │ applied │         │
+└──────────────────────────────────────┴─────────┴─────────┘
+
+To execute flow runs from this deployment, start a worker in a separate terminal that pulls work from the 'default' work pool:
+
+        $ prefect worker start --pool 'default'
+
+To schedule a run for this deployment, use the following command:
+
+        $ prefect deployment run 'prefect flow/Prefect flow deployment'
+
+
+You can also run your flow via the Prefect UI: http://prefect:4200/deployments/deployment/a7c9d3eb-e845-4c19-b598-cfb7ed221b63
 ```
 
 If everything went well then a couple of Prefect blocks, namely `minio-admin` and `prefect-storage` should be available in the Prefect console at the following URL: <http://prefect:4200/blocks>
@@ -522,6 +625,37 @@ The graph is composed with all the tasks connected to the flow definition. The l
 
 ![Prefect Flow Run Log](img/prefect_flow_run_log.png)
 
+Also, the worker's Work Pool console in the shell should be emitting the following in the standard output:
+
+<!-- termynal -->
+```shell
+root@44e5f45ec73e:~/catasto# poetry run prefect worker start --pool "default"
+Discovered type 'process' for work pool 'default'.
+Worker 'ProcessWorker 26800af3-904c-4a08-802a-c23f8c7e0405' started!
+
+15:14:39.811 | INFO    | prefect.flow_runs.worker - Worker 'ProcessWorker 26800af3-904c-4a08-802a-c23f8c7e0405' submitting flow run '2e229f62-dad0-4bdd-9c60-d0e2b1e53f4b'
+15:14:39.863 | INFO    | prefect.flow_runs.worker - Opening process...
+15:14:39.874 | INFO    | prefect.flow_runs.worker - Completed submission of flow run '2e229f62-dad0-4bdd-9c60-d0e2b1e53f4b'
+/usr/local/lib/python3.10/runpy.py:126: RuntimeWarning: 'prefect.engine' found in sys.modules after import of package 'prefect', but prior to execution of 'prefect.engine'; this may result in unpredictable behaviour
+  warn(RuntimeWarning(msg))
+/root/catasto/.venv/lib/python3.10/site-packages/prefect/engine.py:437: PrefectDeprecationWarning: prefect.deployments.deployments.load_flow_from_flow_run has been deprecated. It will not be available after Dec 2024. Will be moved in Prefect 3 to prefect.flows:load_flow_from_flow_run
+  else await load_flow_from_flow_run(
+15:14:41.513 | INFO    | prefect.deployment - Pulled code using block 's3-bucket/prefect-storage' into 's3-bucket-prefect-storage'
+15:14:41.565 | INFO    | Flow run 'courageous-okapi' - Created task run 'extract data-0' for task 'extract data'
+15:14:41.566 | INFO    | Flow run 'courageous-okapi' - Executing 'extract data-0' immediately...
+15:14:41.618 | INFO    | Task run 'extract data-0' - Finished in state Completed()
+15:14:41.631 | INFO    | Flow run 'courageous-okapi' - Created task run 'transform data-0' for task 'transform data'
+15:14:41.631 | INFO    | Flow run 'courageous-okapi' - Executing 'transform data-0' immediately...
+15:14:41.666 | INFO    | Task run 'transform data-0' - Finished in state Completed()
+15:14:41.678 | INFO    | Flow run 'courageous-okapi' - Created task run 'load data-0' for task 'load data'
+15:14:41.678 | INFO    | Flow run 'courageous-okapi' - Executing 'load data-0' immediately...
+15:14:41.702 | INFO    | Task run 'load data-0' - Transformed Data: [2, 4, 6, 8, 10]
+15:14:41.712 | INFO    | Task run 'load data-0' - Finished in state Completed()
+15:14:41.728 | INFO    | Flow run 'courageous-okapi' - Finished in state Completed('All states completed.')
+ > Running pull_with_block step...
+15:14:42.208 | INFO    | prefect.flow_runs.worker - Process 66 exited cleanly.
+```
+
 ### Restart the stack from scratch
 
 If you want to restart the stack with everything clean then you should use the following command which removes the volumes for each service:
@@ -543,3 +677,5 @@ docker compose -f scripts/docker/docker-compose-prefect.yml --profile agent --pr
  ✔ Volume docker_prefect                          Removed                                                                                            0.4s 
  ✔ Network prefect-network                        Removed                                                                                            0.1s 
 ```
+
+Then you can run again the command to start the stack from [Start the stack](#start-the-stack).

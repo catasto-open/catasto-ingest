@@ -1,13 +1,14 @@
-from prefect.deployments import Deployment
+from pathlib import Path
+
+from prefect_aws.client_parameters import AwsClientParameters
+from prefect_aws.credentials import MinIOCredentials
+from prefect_aws.s3 import S3Bucket
 
 from flows.demo import prefect_flow
-from prefect_aws.s3 import S3Bucket
-from prefect_aws.credentials import MinIOCredentials
-from prefect_aws.client_parameters import AwsClientParameters
 
 # prefect flows storage
 try:
-    minio_creds = MinIOCredentials.load("minio-admin") 
+    minio_creds = MinIOCredentials.load("minio-admin")
 except ValueError:
     minio_creds = MinIOCredentials(
         minio_root_user="minioadmin",
@@ -27,16 +28,23 @@ except ValueError:
     # save a pre-defined block "prefect-storage"
     storage.save("prefect-storage")
 
+# prefect deployment
+
+try:
+    flows_dir = Path(__file__).parent.parent
+    storage.upload_from_folder(str(flows_dir), flows_dir.name)
+except:
+    raise
+
 # create and deploy a prefect deployment
-deploy_demo = Deployment.build_from_flow(
-    flow=prefect_flow,
+prefect_flow.from_source(
+    source=storage, entrypoint="flows/demo.py:prefect_flow"
+).deploy(
     name="Prefect flow deployment",
     version="1",
-    storage=storage,
-    infra_overrides=dict({"env.PREFECT_LOGGING_LEVEL": "DEBUG"}),
+    job_variables=dict({"env.PREFECT_LOGGING_LEVEL": "DEBUG"}),
     tags=["demo"],
     schedule=None,
     work_queue_name="default",
-    work_pool_name="default-agent-pool",
+    work_pool_name="default",
 )
-deploy_demo.apply()
