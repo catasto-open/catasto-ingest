@@ -14,8 +14,10 @@ def load_ids_to_notify_to_ancillary(
     logger: BoundLogger = None,
 ) -> str:
     """
-    Prepara la tabella con gli identificativi da notificare ad un sistema ancillare
-    Viene lanciato alla fine dei task di aggiornamento
+    Prepara la tabella con gli identificativi da notificare ad un sistema ancillare.
+    Viene lanciato alla fine dei task di aggiornamento.
+    Non mandata tutti gli identificativi aggiornati, 
+    ma solo quelli restituiti dalla query guida pg_immobili_di_interesse_query fatta verso il db postgres.
 
     Args:
         duckdb_filepath: Percorso al file DuckDB
