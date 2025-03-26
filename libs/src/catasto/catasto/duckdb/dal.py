@@ -3,6 +3,7 @@ import re
 import duckdb
 import sqlalchemy as db
 from sqlalchemy import (
+    BigInteger,
     Column,
     Integer,
     MetaData,
@@ -144,8 +145,8 @@ class DuckDBDirectDataAccessLayer(DataAccessLayer):
     def _adapt_ddl_for_duckdb(self, ddl):
         """Adatta il DDL PostgreSQL per funzionare con DuckDB."""
         # Sostituisci tipi di dati PostgreSQL con equivalenti DuckDB
-        ddl = re.sub(r"int8", "BIGINT", ddl)
-        ddl = re.sub(r"int4", "INTEGER", ddl)
+        ddl = re.sub(r"int8\b", "BIGINT", ddl, flags=re.IGNORECASE)
+        ddl = re.sub(r"int4\b", "INTEGER", ddl, flags=re.IGNORECASE)
 
         # Aggiungi IF NOT EXISTS se non è già presente
         if "IF NOT EXISTS" not in ddl:
@@ -164,8 +165,8 @@ class DuckDBDirectDataAccessLayer(DataAccessLayer):
         type_map = {
             "varchar": String,
             "INTEGER": Integer,
-            "BIGINT": Integer,
-            "int8": Integer,
+            "BIGINT": BigInteger,
+            "int8": BigInteger,
             "int4": Integer,
         }
 

@@ -74,7 +74,7 @@ async def load_titolarita(
             numeratore int4 NULL,
             denominato int4 NULL,
             regime varchar(1) NULL,
-            rif_regime int4 NULL,
+            rif_regime int8 NULL,
             gen_valida varchar(10) NULL,
             gen_nota varchar(1) NULL,
             gen_numero varchar(6) NULL,
