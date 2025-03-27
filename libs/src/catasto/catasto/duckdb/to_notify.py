@@ -205,7 +205,7 @@ def main():
 
     parser.add_argument("--duckdb_filepath", default="/tmp/catasto.duckdb", help="Percorso file DuckDB")
     parser.add_argument("--pg_conn_string", default="postgresql://siscatsrv:siscatsrv@localhost:5433/siscat", help="Connessione PostgreSQL")
-    parser.add_argument("--pg_immobili_di_interesse_query", default="SELECT tit.codice as codice_comune, tit.immobile as codice_immobile, tit.tipo_imm as tipo_immobile FROM ctcn.titolarita_roma_capitale tit GROUP BY tit.codice, tit.immobile, tit.tipo_imm", help="Query immobili di interesse")
+    parser.add_argument("--pg_immobili_di_interesse_query", default="SELECT tit.codice as codice_comune, tit.immobile as codice_immobile, tit.tipo_imm as tipo_immobile FROM ctcn.titolarita_big_city tit GROUP BY tit.codice, tit.immobile, tit.tipo_imm", help="Query immobili di interesse")
 
     args = parser.parse_args()
 
