@@ -1,4 +1,5 @@
 import asyncio
+import argparse
 import json
 from datetime import datetime
 import duckdb
@@ -44,7 +45,12 @@ async def push_from_duckdb_to_nats(duckdb_filepath, nats_endpoint):
         nats_endpoint: Connessione al db postgres con i dati del catasto (tipo nats://localhost:4222)
 
     """
-    nc = await nats.connect(nats_endpoint)
+    try:
+        nc = await asyncio.wait_for(nats.connect(nats_endpoint), timeout=10)
+    except (asyncio.TimeoutError, Exception) as e:
+        print(f"Failed to connect to NATS: {e}")
+        return
+
     try:
         js = nc.jetstream()
         await js.add_stream(name="CATASTO", subjects=["CATASTO.changed"])
@@ -68,3 +74,25 @@ async def push_from_duckdb_to_nats(duckdb_filepath, nats_endpoint):
 
     finally:
         await nc.close()
+
+
+async def main():
+    parser = argparse.ArgumentParser(description="Push data from DuckDB to NATS.")
+    parser.add_argument(
+        "--duckdb-filepath",
+        default="/tmp/catasto.duckdb",
+        help="Filepath to the DuckDB database file.",
+    )
+    parser.add_argument(
+        "--nats-endpoint",
+        default="nats://localhost:4222",
+        help="NATS endpoint (e.g., nats://localhost:4222).",
+    )
+
+    args = parser.parse_args()
+
+    await push_from_duckdb_to_nats(args.duckdb_filepath, args.nats_endpoint)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

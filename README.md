@@ -26,3 +26,11 @@
     - file_cxf
     - immobili
     - planimetrie
+
+## Now to have a NATS server locally for testing
+
+If you have docker installed, run:
+
+```
+docker run -p 4222:4222 nats -js
+```
