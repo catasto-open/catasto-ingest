@@ -46,5 +46,5 @@ prefect_flow.from_source(
     tags=["demo"],
     schedule=None,
     work_queue_name="default",
-    work_pool_name="default",
+    work_pool_name="catasto-pool",
 )
