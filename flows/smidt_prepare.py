@@ -48,7 +48,7 @@ def group_files(files_list: List[str]) -> Dict[str, Tuple[str, ...]]:
         complete_name = parts[-1]  # H501189146.Tit o H501A189149.Tit ecc.
         name_parts = complete_name.split(".")
         filename = name_parts[0]  # H501189146 o H501A189149 ecc.
-        extension = name_parts[1]  # Tit, Fab, Prm, Sog, Ter
+        extension = name_parts[1]  # Tit, Fab, Prm, Sog, Ter, Sup, Cxf
 
         # Extract identifier (RM000189149022025)
         complete_id = parts[-2]  # RM000189149022025
@@ -79,7 +79,13 @@ def group_files(files_list: List[str]) -> Dict[str, Tuple[str, ...]]:
                 break
 
         # Convert numeric part to integer
-        numeric_part = int(numeric_part)
+        if extension.upper() in ["FAB", "SOG", "TER", "TIT"]:
+            numeric_part = int(numeric_part)
+        elif extension.upper() in ["CXF", "SUP"]:
+            if numeric_part.isalnum():
+                numeric_part = int(numeric_part[:-2])
+            else:
+                numeric_part = int(numeric_part)
 
         # Ordering key: (year, month, number_id, alfa_prefix, numeric_part)
         ordering_key = (year, month, number_id, alfa_prefix, numeric_part)
