@@ -228,7 +228,6 @@ async def load_carto(
         logger.debug("Creazione della tabella testi")
         duck_conn.execute("""
         CREATE TABLE IF NOT EXISTS ctmp.testi (
-            id bigint NOT NULL,
             comune varchar(4) NOT NULL,
             sezione varchar(1) NOT NULL,
             foglio varchar(4) NOT NULL,
@@ -238,8 +237,7 @@ async def load_carto(
             altezza numeric(12, 2) NULL,
             angolo numeric(12, 2) NULL,
             esterno int4 NOT NULL,
-            geom public.geometry NOT NULL,
-            PRIMARY KEY (comune, sezione, foglio, allegato, sviluppo)
+            geom public.geometry NOT NULL
         )
         """)
 
