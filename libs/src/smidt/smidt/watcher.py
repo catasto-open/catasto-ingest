@@ -182,7 +182,7 @@ class FTPMinioObserver:
                 self.config.USER,
                 self.config.PASSWORD,
             )
-            connection.download(file_path, temp_file.name, "b")
+            connection.download(file_path, temp_file.name)
 
             # Get file size
             file_size = os.path.getsize(temp_file.name)

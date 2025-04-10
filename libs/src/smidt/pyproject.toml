@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "smidt"
-version = "0.4.0"
+version = "0.5.0"
 description = "Smidt workflow for the automatic ingestion to Sister workflow"
 authors = ["Francesco Bartoli <francesco.bartoli@geobeyond.it>"]
 packages = [
