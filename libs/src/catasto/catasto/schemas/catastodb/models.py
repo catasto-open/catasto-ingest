@@ -13,7 +13,7 @@ from ..building import (
     UtilitaComune,
 )
 from ..building import Riserva as FabRiserva
-from ..carto import CartoBordo, CartoTesto
+from ..carto import CartoBordo, CartoSimbolo, CartoTesto
 from ..entitlement import Titolarita
 from ..land import (
     Deduzione,
@@ -747,4 +747,28 @@ class Testi(CatastoBaseModel):
             altezza=safe_cast(dati_testo.dimensione, float, None),
             angolo=safe_cast(dati_testo.angolo, int, 0),
             geom=f"{dati_testo.geometry}",
+        )
+
+
+class Simboli(CatastoBaseModel):
+    comune: str
+    sezione: str | None
+    foglio: str | None
+    allegato: str | None
+    sviluppo: str | None
+    codice: str | None = ""
+    angolo: int | None = 0
+    esterno: int = 0
+    geom: str
+
+    def extract_from_model(dati_simbolo: CartoSimbolo):
+        return Simboli(
+            comune=dati_simbolo.comune,
+            sezione=dati_simbolo.sezione,
+            foglio=dati_simbolo.foglio,
+            allegato=dati_simbolo.allegato,
+            sviluppo=dati_simbolo.sviluppo,
+            codice=dati_simbolo.codice,
+            angolo=safe_cast(dati_simbolo.angolo, int, 0),
+            geom=f"{dati_simbolo.geometry}",
         )

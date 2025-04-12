@@ -12,13 +12,14 @@ from catasto.coords import detect_crs_from_cxf, transform_cxf_vertices
 from catasto.duckdb.repository import DuckDBRepository
 from catasto.parser import FileParserService
 from catasto.reader import LocalFileReaderService
-from catasto.schemas.carto import CartoBordo, CartoObjectItem, CartoTesto
+from catasto.schemas.carto import CartoBordo, CartoObjectItem, CartoSimbolo, CartoTesto
 from catasto.schemas.catastodb.models import (
     Acque,
     Fabbricati,
     Fogli,
     Particelle,
     Quadri,
+    Simboli,
     Strade,
     Testi,
 )
@@ -266,6 +267,7 @@ async def load_carto(
                 "simboli",
                 "strade",
                 "testi",
+                "simboli",
             ]:
                 duck_conn.execute(f"DELETE FROM ctmp.{table}")
             logger.info("Tabelle svuotate con successo")
@@ -354,6 +356,18 @@ async def load_carto(
                 "sviluppo",
             ],
         )
+        simboli_repo = DuckDBRepository(
+            connection=duck_conn,
+            entity_type=Simboli,
+            table_name="ctmp.simboli",
+            primary_keys=[
+                "comune",
+                "sezione",
+                "foglio",
+                "allegato",
+                "sviluppo",
+            ],
+        )
 
         # Verifica quanti record ci sono nelle tabelle
         count_before = duck_conn.execute("SELECT COUNT(*) FROM ctmp.fogli").fetchone()[
@@ -379,6 +393,7 @@ async def load_carto(
             strade_records = []
             acque_records = []
             testi_records = []
+            simboli_records = []
 
             if content.oggetti.bordo:
                 logger.debug(
@@ -505,6 +520,40 @@ async def load_carto(
                 logger.debug(
                     f"Parsing completato, numero di simboli: {len(content.oggetti.simbolo)}"
                 )
+                for simbolo_item in content.oggetti.simbolo:
+                    # foglio
+                    foglio = CartoObjectItem(
+                        comune=content.codice_comune,
+                        sezione=content.codice_sezione_censuaria,
+                        foglio=content.codice_numero_foglio,
+                        allegato=content.codice_allegato,
+                        sviluppo=content.codice_sviluppo,
+                    )
+                    simbolo = CartoSimbolo(**foglio.model_dump(), **simbolo_item)
+                    try:
+                        if simbolo.posizione_x and simbolo.posizione_y:
+                            t_point = Geometry(wkbPoint)
+                            t_point_x, t_point_y = map(
+                                float,
+                                transform_vertices(
+                                    vertices=[
+                                        (simbolo.posizione_x, simbolo.posizione_y)
+                                    ],
+                                    mun_code="H501",
+                                )[0],
+                            )
+                            t_point.AddPoint(t_point_x, t_point_y)
+                            t_point.FlattenTo2D()
+                            simbolo.geometry = t_point.ExportToWkt()
+                        else:
+                            logger.error(
+                                f"Non è possibile costruire la geometria con POINT({simbolo.posizione_x},{simbolo.posizione_x})"
+                            )
+                        simboli_records.append(
+                            Simboli.extract_from_model(dati_simbolo=simbolo)
+                        )
+                    except ValidationError:
+                        logger.error(f"Error validating geometry: {t_point}")
             if content.oggetti.testo:
                 logger.debug(
                     f"Parsing completato, numero di testi: {len(content.oggetti.testo)}"
@@ -544,7 +593,7 @@ async def load_carto(
                 f"Record estratti: fogli={len(fogli_records)}, quadri={len(quadri_records)}, "
                 f"fabbricati={len(fabbricati_records)}, particelle={len(particelle_records)}, "
                 f"acque={len(acque_records)}, strade={len(strade_records)}, "
-                f"testi={len(testi_records)}, "
+                f"testi={len(testi_records)}, simboli={len(simboli_records)}, "
             )
 
             # Inserisci tutti i record
@@ -593,6 +642,11 @@ async def load_carto(
                 count = await testi_repo.insert_many(testi_records)
                 logger.info(f"Inseriti {count} record in testi")
                 total_records += count
+            if simboli_records:
+                logger.info(f"Inserimento di {len(simboli_records)} record in simboli")
+                count = await simboli_repo.insert_many(simboli_records)
+                logger.info(f"Inseriti {count} record in simboli")
+                total_records += count
 
             insert_duration = time.time() - insert_start_time
             logger.info(f"Inserimento completato in {insert_duration:.2f} secondi")
@@ -611,6 +665,7 @@ async def load_carto(
             "acque",
             "strade",
             "testi",
+            "simboli",
         ]
         for table in tables:
             duck_conn.load_extension("spatial")

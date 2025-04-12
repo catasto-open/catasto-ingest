@@ -122,3 +122,12 @@ class CartoTesto(CartoObjectItem):
     posizione_x: OptionalStr = Field(None, alias="POSIZIONEX")
     posizione_y: OptionalStr = Field(None, alias="POSIZIONEY")
     geometry: OptionalStr = Field(None)
+
+
+class CartoSimbolo(CartoObjectItem):
+    codice: OptionalStr = Field(None, alias="CODICE SIMBOLO")
+    esterno: bool = Field(..., alias="ESTERNO")
+    angolo: OptionalStr = Field(None, alias="ANGOLO")
+    posizione_x: OptionalStr = Field(None, alias="POSIZIONEX")
+    posizione_y: OptionalStr = Field(None, alias="POSIZIONEY")
+    geometry: OptionalStr = Field(None)
