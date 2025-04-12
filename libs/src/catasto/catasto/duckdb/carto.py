@@ -13,7 +13,14 @@ from catasto.duckdb.repository import DuckDBRepository
 from catasto.parser import FileParserService
 from catasto.reader import LocalFileReaderService
 from catasto.schemas.carto import CartoBordo, CartoObjectItem
-from catasto.schemas.catastodb.models import Fabbricati, Fogli, Quadri
+from catasto.schemas.catastodb.models import (
+    Acque,
+    Fabbricati,
+    Fogli,
+    Particelle,
+    Quadri,
+    Strade,
+)
 
 
 async def load_carto(
@@ -66,8 +73,8 @@ async def load_carto(
         duck_conn.execute("CREATE SCHEMA IF NOT EXISTS ctmp")
         # Installa l'estensione spaziale
         logger.debug("Installazione dell'estensione spaziale")
-        duck_conn.execute("INSTALL spatial;")
-        duck_conn.execute("LOAD spatial;")
+        duck_conn.install_extension("spatial")
+        duck_conn.load_extension("spatial")
         # Crea tutte le tabelle direttamente in DuckDB
         logger.debug("Creazione della tabella fogli")
         duck_conn.execute("""
@@ -295,6 +302,45 @@ async def load_carto(
                 "numero",
             ],
         )
+        particelle_repo = DuckDBRepository(
+            connection=duck_conn,
+            entity_type=Particelle,
+            table_name="ctmp.particelle",
+            primary_keys=[
+                "comune",
+                "sezione",
+                "foglio",
+                "allegato",
+                "sviluppo",
+                "numero",
+            ],
+        )
+        acque_repo = DuckDBRepository(
+            connection=duck_conn,
+            entity_type=Acque,
+            table_name="ctmp.acque",
+            primary_keys=[
+                "comune",
+                "sezione",
+                "foglio",
+                "allegato",
+                "sviluppo",
+                "numero",
+            ],
+        )
+        strade_repo = DuckDBRepository(
+            connection=duck_conn,
+            entity_type=Strade,
+            table_name="ctmp.strade",
+            primary_keys=[
+                "comune",
+                "sezione",
+                "foglio",
+                "allegato",
+                "sviluppo",
+                "numero",
+            ],
+        )
 
         # Verifica quanti record ci sono nelle tabelle
         count_before = duck_conn.execute("SELECT COUNT(*) FROM ctmp.fogli").fetchone()[
@@ -416,16 +462,20 @@ async def load_carto(
                                     Quadri.extract_from_model(dati_quadro_unione=bordo)
                                 )
                     elif bordo.tipo == "STRADA":
-                        strade_records.append(bordo)
+                        strade_records.append(
+                            Strade.extract_from_model(dati_strada=bordo)
+                        )
                     elif bordo.tipo == "ACQUA":
-                        acque_records.append(bordo)
+                        acque_records.append(Acque.extract_from_model(dati_acqua=bordo))
                     elif bordo.tipo == "FABBRICATO":
                         bordo.codice_identificativo = bordo.codice_identificativo[:-1]
                         fabbricati_records.append(
                             Fabbricati.extract_from_model(dati_fabbricato=bordo)
                         )
                     elif bordo.tipo == "PARTICELLA":
-                        particelle_records.append(bordo)
+                        particelle_records.append(
+                            Particelle.extract_from_model(dati_particella=bordo)
+                        )
                     else:
                         logger.error(f"Tipo {bordo.tipo} non implementato")
                         pass
@@ -477,6 +527,23 @@ async def load_carto(
                 count = await fabbricati_repo.insert_many(fabbricati_records)
                 logger.info(f"Inseriti {count} record in fabbricati")
                 total_records += count
+            if particelle_records:
+                logger.info(
+                    f"Inserimento di {len(particelle_records)} record in particelle"
+                )
+                count = await particelle_repo.insert_many(particelle_records)
+                logger.info(f"Inseriti {count} record in particelle")
+                total_records += count
+            if acque_records:
+                logger.info(f"Inserimento di {len(acque_records)} record in acque")
+                count = await acque_repo.insert_many(acque_records)
+                logger.info(f"Inseriti {count} record in acque")
+                total_records += count
+            if strade_records:
+                logger.info(f"Inserimento di {len(strade_records)} record in strade")
+                count = await strade_repo.insert_many(strade_records)
+                logger.info(f"Inseriti {count} record in strade")
+                total_records += count
 
             insert_duration = time.time() - insert_start_time
             logger.info(f"Inserimento completato in {insert_duration:.2f} secondi")
@@ -496,6 +563,7 @@ async def load_carto(
             "strade",
         ]
         for table in tables:
+            duck_conn.load_extension("spatial")
             count = duck_conn.execute(f"SELECT COUNT(*) FROM ctmp.{table}").fetchone()[
                 0
             ]
@@ -503,6 +571,7 @@ async def load_carto(
 
         # Mostra alcuni esempi (solo nel log di livello debug)
         logger.debug("Esempi di dati in particelle:")
+        duck_conn.load_extension("spatial")
         sample = duck_conn.execute("SELECT * FROM ctmp.particelle LIMIT 3").fetchall()
         for idx, row in enumerate(sample):
             logger.debug(f"Row {idx+1}: {row}")

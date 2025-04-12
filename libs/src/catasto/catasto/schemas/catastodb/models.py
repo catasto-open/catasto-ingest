@@ -576,7 +576,7 @@ class Fogli(CatastoBaseModel):
             allegato=dati_foglio.allegato,
             sviluppo=dati_foglio.sviluppo,
             t_altezza=safe_cast(dati_foglio.dimensione, float, None),
-            t_angolo=safe_cast(dati_foglio.angolo, int, None),
+            t_angolo=safe_cast(dati_foglio.angolo, int, 0),
             t_pt_ins=f"{dati_foglio.t_pt_ins}",
             t_ln_anc=f"{dati_foglio.t_ln_anc}",
             geom=f"{dati_foglio.geometry}",
@@ -603,7 +603,7 @@ class Quadri(CatastoBaseModel):
             allegato=dati_quadro_unione.allegato,
             sviluppo=dati_quadro_unione.sviluppo,
             t_altezza=safe_cast(dati_quadro_unione.dimensione, float, None),
-            t_angolo=safe_cast(dati_quadro_unione.angolo, int, None),
+            t_angolo=safe_cast(dati_quadro_unione.angolo, int, 0),
             t_pt_ins=f"{dati_quadro_unione.t_pt_ins}",
             t_ln_anc=f"{dati_quadro_unione.t_ln_anc}",
             geom=f"{dati_quadro_unione.geometry}",
@@ -632,8 +632,93 @@ class Fabbricati(CatastoBaseModel):
             sviluppo=dati_fabbricato.sviluppo,
             numero=dati_fabbricato.codice_identificativo,
             t_altezza=safe_cast(dati_fabbricato.dimensione, float, None),
-            t_angolo=safe_cast(dati_fabbricato.angolo, int, None),
+            t_angolo=safe_cast(dati_fabbricato.angolo, int, 0),
             t_pt_ins=f"{dati_fabbricato.t_pt_ins}",
             t_ln_anc=f"{dati_fabbricato.t_ln_anc}",
             geom=f"{dati_fabbricato.geometry}",
+        )
+
+
+class Particelle(CatastoBaseModel):
+    comune: str
+    sezione: str | None
+    foglio: str | None
+    allegato: str | None
+    sviluppo: str | None
+    numero: str | None
+    t_altezza: float | None
+    t_angolo: int | None = 0
+    t_pt_ins: str | None
+    t_ln_anc: str | None
+    geom: str
+
+    def extract_from_model(dati_particella: CartoBordo):
+        return Particelle(
+            comune=dati_particella.comune,
+            sezione=dati_particella.sezione,
+            foglio=dati_particella.foglio,
+            allegato=dati_particella.allegato,
+            sviluppo=dati_particella.sviluppo,
+            numero=dati_particella.codice_identificativo,
+            t_altezza=safe_cast(dati_particella.dimensione, float, None),
+            t_angolo=safe_cast(dati_particella.angolo, int, 0),
+            t_pt_ins=f"{dati_particella.t_pt_ins}",
+            t_ln_anc=f"{dati_particella.t_ln_anc}",
+            geom=f"{dati_particella.geometry}",
+        )
+
+
+class Acque(CatastoBaseModel):
+    comune: str
+    sezione: str | None
+    foglio: str | None
+    allegato: str | None
+    sviluppo: str | None
+    numero: str | None = ""
+    t_altezza: float | None
+    t_angolo: int | None = 0
+    t_pt_ins: str | None
+    t_ln_anc: str | None
+    geom: str
+
+    def extract_from_model(dati_acqua: CartoBordo):
+        return Acque(
+            comune=dati_acqua.comune,
+            sezione=dati_acqua.sezione,
+            foglio=dati_acqua.foglio,
+            allegato=dati_acqua.allegato,
+            sviluppo=dati_acqua.sviluppo,
+            t_altezza=safe_cast(dati_acqua.dimensione, float, None),
+            t_angolo=safe_cast(dati_acqua.angolo, int, 0),
+            t_pt_ins=f"{dati_acqua.t_pt_ins}",
+            t_ln_anc=f"{dati_acqua.t_ln_anc}",
+            geom=f"{dati_acqua.geometry}",
+        )
+
+
+class Strade(CatastoBaseModel):
+    comune: str
+    sezione: str | None
+    foglio: str | None
+    allegato: str | None
+    sviluppo: str | None
+    numero: str | None = ""
+    t_altezza: float | None
+    t_angolo: int | None = 0
+    t_pt_ins: str | None
+    t_ln_anc: str | None
+    geom: str
+
+    def extract_from_model(dati_strada: CartoBordo):
+        return Acque(
+            comune=dati_strada.comune,
+            sezione=dati_strada.sezione,
+            foglio=dati_strada.foglio,
+            allegato=dati_strada.allegato,
+            sviluppo=dati_strada.sviluppo,
+            t_altezza=safe_cast(dati_strada.dimensione, float, None),
+            t_angolo=safe_cast(dati_strada.angolo, int, 0),
+            t_pt_ins=f"{dati_strada.t_pt_ins}",
+            t_ln_anc=f"{dati_strada.t_ln_anc}",
+            geom=f"{dati_strada.geometry}",
         )
