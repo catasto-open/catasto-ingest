@@ -161,9 +161,7 @@ class FileParserService(FileParser):
         land_sheet.header = header
         return (land_sheet, _iter)
 
-    def _parse_carto_objects(
-        self, land_sheet: LandSheet, _iter: Iterator
-    ) -> Tuple[LandSheet, Iterator]:
+    def _parse_carto_objects(self, land_sheet: LandSheet, _iter: Iterator) -> LandSheet:
         def _get_tipo(_iter: Iterator, obj: Dict) -> Dict:
             obj["TIPO"] = []
             if len(obj["CODICE_IDENTIFICATIVO"]) == 11:
@@ -233,10 +231,23 @@ class FileParserService(FileParser):
 
         land_sheet.oggetti = CartoObject()
         for raw_line in _iter:
-            line = raw_line.strip().rstrip("\\")
+            raw_line = raw_line.strip()
+            is_external = False
+
+            # Controlla se l'elemento è esterno (ha il '\' alla fine)
+            if raw_line.endswith("\\"):
+                is_external = True
+                line = raw_line.rstrip("\\")
+            else:
+                line = raw_line
+
             if line not in land_sheet.oggetti.model_dump(by_alias=True):
                 raise ValueError(f"Unkwown object {line}")
+
             obj = {}
+            # Aggiungi questa informazione all'oggetto
+            obj["ESTERNO"] = is_external
+
             record_names, functions = _build_carto_objects()[line]
             for record_name in record_names:
                 obj[record_name] = next(_iter).strip()
@@ -247,6 +258,7 @@ class FileParserService(FileParser):
                     obj = _get_vertici(_iter=_iter, obj=obj)
                 elif function == "tabisole":
                     obj = _get_tabisole(_iter=_iter, obj=obj)
+
             if line == "BORDO":
                 land_sheet.oggetti.bordo.append(obj)
             elif line == "TESTO":
@@ -262,12 +274,14 @@ class FileParserService(FileParser):
                 break
             else:
                 pass
+
         try:
             garbage = next(_iter)
         except StopIteration:
             garbage = None
         if garbage is not None:
             print(f"Garbage after CTF EOF {garbage}")
+
         return land_sheet
 
     def _extract_codice_comune(self, name: str) -> str:

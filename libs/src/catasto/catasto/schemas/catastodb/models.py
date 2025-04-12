@@ -13,7 +13,7 @@ from ..building import (
     UtilitaComune,
 )
 from ..building import Riserva as FabRiserva
-from ..carto import CartoBordo
+from ..carto import CartoBordo, CartoTesto
 from ..entitlement import Titolarita
 from ..land import (
     Deduzione,
@@ -721,4 +721,30 @@ class Strade(CatastoBaseModel):
             t_pt_ins=f"{dati_strada.t_pt_ins}",
             t_ln_anc=f"{dati_strada.t_ln_anc}",
             geom=f"{dati_strada.geometry}",
+        )
+
+
+class Testi(CatastoBaseModel):
+    comune: str
+    sezione: str | None
+    foglio: str | None
+    allegato: str | None
+    sviluppo: str | None
+    testo: str | None = ""
+    altezza: float | None
+    angolo: int | None = 0
+    esterno: int = 0
+    geom: str
+
+    def extract_from_model(dati_testo: CartoTesto):
+        return Testi(
+            comune=dati_testo.comune,
+            sezione=dati_testo.sezione,
+            foglio=dati_testo.foglio,
+            allegato=dati_testo.allegato,
+            sviluppo=dati_testo.sviluppo,
+            testo=dati_testo.testo,
+            altezza=safe_cast(dati_testo.dimensione, float, None),
+            angolo=safe_cast(dati_testo.angolo, int, 0),
+            geom=f"{dati_testo.geometry}",
         )

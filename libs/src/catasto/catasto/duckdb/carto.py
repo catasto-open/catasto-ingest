@@ -12,7 +12,7 @@ from catasto.coords import detect_crs_from_cxf, transform_cxf_vertices
 from catasto.duckdb.repository import DuckDBRepository
 from catasto.parser import FileParserService
 from catasto.reader import LocalFileReaderService
-from catasto.schemas.carto import CartoBordo, CartoObjectItem
+from catasto.schemas.carto import CartoBordo, CartoObjectItem, CartoTesto
 from catasto.schemas.catastodb.models import (
     Acque,
     Fabbricati,
@@ -20,6 +20,7 @@ from catasto.schemas.catastodb.models import (
     Particelle,
     Quadri,
     Strade,
+    Testi,
 )
 
 
@@ -341,6 +342,18 @@ async def load_carto(
                 "numero",
             ],
         )
+        testi_repo = DuckDBRepository(
+            connection=duck_conn,
+            entity_type=Testi,
+            table_name="ctmp.testi",
+            primary_keys=[
+                "comune",
+                "sezione",
+                "foglio",
+                "allegato",
+                "sviluppo",
+            ],
+        )
 
         # Verifica quanti record ci sono nelle tabelle
         count_before = duck_conn.execute("SELECT COUNT(*) FROM ctmp.fogli").fetchone()[
@@ -357,7 +370,7 @@ async def load_carto(
         content = await parser.parse()
 
         # Processo di elaborazione
-        async def process_bordi():
+        async def process_carto():
             # Raccogli tutti i record
             fogli_records = []
             quadri_records = []
@@ -365,6 +378,7 @@ async def load_carto(
             particelle_records = []
             strade_records = []
             acque_records = []
+            testi_records = []
 
             if content.oggetti.bordo:
                 logger.debug(
@@ -478,29 +492,59 @@ async def load_carto(
                         )
                     else:
                         logger.error(f"Tipo {bordo.tipo} non implementato")
-                        pass
 
             if content.oggetti.fiduciale:
                 logger.debug(
-                    f"Parsing completato, numero di bordi: {len(content.oggetti.fiduciale)}"
+                    f"Parsing completato, numero di fiduciali: {len(content.oggetti.fiduciale)}"
                 )
             if content.oggetti.linea:
                 logger.debug(
-                    f"Parsing completato, numero di bordi: {len(content.oggetti.linea)}"
+                    f"Parsing completato, numero di linee: {len(content.oggetti.linea)}"
                 )
             if content.oggetti.simbolo:
                 logger.debug(
-                    f"Parsing completato, numero di bordi: {len(content.oggetti.simbolo)}"
+                    f"Parsing completato, numero di simboli: {len(content.oggetti.simbolo)}"
                 )
             if content.oggetti.testo:
                 logger.debug(
-                    f"Parsing completato, numero di bordi: {len(content.oggetti.testo)}"
+                    f"Parsing completato, numero di testi: {len(content.oggetti.testo)}"
                 )
+                for testo_item in content.oggetti.testo:
+                    # foglio
+                    foglio = CartoObjectItem(
+                        comune=content.codice_comune,
+                        sezione=content.codice_sezione_censuaria,
+                        foglio=content.codice_numero_foglio,
+                        allegato=content.codice_allegato,
+                        sviluppo=content.codice_sviluppo,
+                    )
+                    testo = CartoTesto(**foglio.model_dump(), **testo_item)
+                    try:
+                        if testo.posizione_x and testo.posizione_y:
+                            t_point = Geometry(wkbPoint)
+                            t_point_x, t_point_y = map(
+                                float,
+                                transform_vertices(
+                                    vertices=[(testo.posizione_x, testo.posizione_y)],
+                                    mun_code="H501",
+                                )[0],
+                            )
+                            t_point.AddPoint(t_point_x, t_point_y)
+                            t_point.FlattenTo2D()
+                            testo.geometry = t_point.ExportToWkt()
+                        else:
+                            logger.error(
+                                f"Non è possibile costruire la geometria con POINT({testo.posizione_x},{testo.posizione_x})"
+                            )
+                        testi_records.append(Testi.extract_from_model(dati_testo=testo))
+                    except ValidationError:
+                        logger.error(f"Error validating geometry: {t_point}")
 
             logger.info(
                 f"Record estratti: fogli={len(fogli_records)}, quadri={len(quadri_records)}, "
                 f"fabbricati={len(fabbricati_records)}, particelle={len(particelle_records)}, "
-                f"acque={len(acque_records)}, strade={len(strade_records)}"
+                f"acque={len(acque_records)}, strade={len(strade_records)}, "
+                f"testi={len(testi_records)}, "
             )
 
             # Inserisci tutti i record
@@ -544,14 +588,19 @@ async def load_carto(
                 count = await strade_repo.insert_many(strade_records)
                 logger.info(f"Inseriti {count} record in strade")
                 total_records += count
+            if testi_records:
+                logger.info(f"Inserimento di {len(testi_records)} record in testi")
+                count = await testi_repo.insert_many(testi_records)
+                logger.info(f"Inseriti {count} record in testi")
+                total_records += count
 
             insert_duration = time.time() - insert_start_time
             logger.info(f"Inserimento completato in {insert_duration:.2f} secondi")
             return total_records
 
         # Esegui il processo
-        result_bordi = await process_bordi()
-        logger.info(f"Inseriti in totale {result_bordi} record bordi")
+        result_carto = await process_carto()
+        logger.info(f"Inseriti in totale {result_carto} record cartografici")
 
         # Verifica i dati inseriti
         tables = [
@@ -561,6 +610,7 @@ async def load_carto(
             "fabbricati",
             "acque",
             "strade",
+            "testi",
         ]
         for table in tables:
             duck_conn.load_extension("spatial")

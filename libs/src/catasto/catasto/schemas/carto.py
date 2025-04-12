@@ -112,3 +112,13 @@ class CartoBordo(CartoObjectItem):
     #     return int(self.codice_identificativo)
 
     model_config = {"arbitrary_types_allowed": True, "populate_by_name": True}
+
+
+class CartoTesto(CartoObjectItem):
+    testo: OptionalStr = Field(None, alias="TESTO")
+    esterno: bool = Field(..., alias="ESTERNO")
+    dimensione: OptionalStr = Field(None, alias="DIMENSIONE")
+    angolo: OptionalStr = Field(None, alias="ANGOLO")
+    posizione_x: OptionalStr = Field(None, alias="POSIZIONEX")
+    posizione_y: OptionalStr = Field(None, alias="POSIZIONEY")
+    geometry: OptionalStr = Field(None)
