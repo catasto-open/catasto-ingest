@@ -77,6 +77,7 @@ if __name__ == "__main__":
         ter_files=local_sorted_files["TER"],
         sog_files=local_sorted_files["SOG"],
         tit_files=local_sorted_files["TIT"],
+        cxf_files=local_sorted_files["CXF"],
         catasto_db="/tmp/catasto.duckdb",
         empty_db=True,
     )
