@@ -90,7 +90,6 @@ class CartoObjectItem(BaseModel):
 
 
 class CartoBordo(CartoObjectItem):
-    # _id: str
     codice_identificativo: OptionalStr = Field(None, alias="CODICE_IDENTIFICATIVO")
     tipo: OptionalStr = Field(None, alias="TIPO")
     vertici: List = Field(default_factory=list, alias="VERTICI")
@@ -103,7 +102,9 @@ class CartoBordo(CartoObjectItem):
     posizione_y: OptionalStr = Field(None, alias="POSIZIONEY")
     puntointerno_x: OptionalStr = Field(None, alias="PUNTOINTERNOX")
     puntointerno_y: OptionalStr = Field(None, alias="PUNTOINTERNOY")
-    geometry: str | None = Field(None)
+    t_pt_ins: OptionalStr = Field(None)
+    t_ln_anc: OptionalStr = Field(None)
+    geometry: OptionalStr = Field(None)
 
     # @computed_field
     # @property

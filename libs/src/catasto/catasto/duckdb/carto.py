@@ -3,15 +3,17 @@ from pathlib import Path
 
 import duckdb
 import structlog
-from osgeo.ogr import Geometry, wkbLinearRing, wkbPolygon
+from osgeo.ogr import Geometry, wkbLinearRing, wkbPoint, wkbPolygon
 from pydantic import ValidationError
 from structlog.stdlib import BoundLogger
 
+from catasto.carto import transform_vertices
 from catasto.coords import detect_crs_from_cxf, transform_cxf_vertices
 from catasto.duckdb.repository import DuckDBRepository
 from catasto.parser import FileParserService
 from catasto.reader import LocalFileReaderService
 from catasto.schemas.carto import CartoBordo, CartoObjectItem
+from catasto.schemas.catastodb.models import Fabbricati, Fogli, Quadri
 
 
 async def load_carto(
@@ -264,13 +266,13 @@ async def load_carto(
         logger.debug("Inizializzazione dei repository")
         fogli_repo = DuckDBRepository(
             connection=duck_conn,
-            entity_type=CartoBordo,
+            entity_type=Fogli,
             table_name="ctmp.fogli",
             primary_keys=["comune", "sezione", "foglio", "allegato", "sviluppo"],
         )
         quadri_repo = DuckDBRepository(
             connection=duck_conn,
-            entity_type=CartoBordo,
+            entity_type=Quadri,
             table_name="ctmp.quadri_unione",
             primary_keys=[
                 "comune",
@@ -282,7 +284,7 @@ async def load_carto(
         )
         fabbricati_repo = DuckDBRepository(
             connection=duck_conn,
-            entity_type=CartoBordo,
+            entity_type=Fabbricati,
             table_name="ctmp.fabbricati",
             primary_keys=[
                 "comune",
@@ -373,22 +375,55 @@ async def load_carto(
                                 ring.AddPoint(x, y)
                             ring.CloseRings()
                             polygon.AddGeometry(ring)
+                        polygon.FlattenTo2D()
                         bordo.geometry = polygon.ExportToWkt()
+                        if bordo.posizione_x and bordo.posizione_y:
+                            t_pt_ins = Geometry(wkbPoint)
+                            t_pt_ins_x, t_pt_ins_y = map(
+                                float,
+                                transform_vertices(
+                                    vertices=[(bordo.posizione_x, bordo.posizione_y)],
+                                    mun_code="H501",
+                                )[0],
+                            )
+                            t_pt_ins.AddPoint(t_pt_ins_x, t_pt_ins_y)
+                            t_pt_ins.FlattenTo2D()
+                            bordo.t_pt_ins = t_pt_ins.ExportToWkt()
+                        if bordo.puntointerno_x and bordo.puntointerno_y:
+                            t_ln_anc = Geometry(wkbPoint)
+                            t_ln_anc_x, t_ln_anc_y = map(
+                                float,
+                                transform_vertices(
+                                    vertices=[
+                                        (bordo.puntointerno_x, bordo.puntointerno_y)
+                                    ],
+                                    mun_code="H501",
+                                )[0],
+                            )
+                            t_ln_anc.AddPoint(t_ln_anc_x, t_ln_anc_y)
+                            t_ln_anc.FlattenTo2D()
+                            bordo.t_ln_anc = t_ln_anc.ExportToWkt()
                     except ValidationError:
                         logger.error(f"Error validating geometry: {polygon}")
                     if bordo.tipo == "CONFINE":
                         if bordo.codice_identificativo == content.codice_foglio:
-                            fogli_records.append(bordo)
+                            fogli_records.append(
+                                Fogli.extract_from_model(dati_foglio=bordo)
+                            )
                         else:
                             if len(bordo.codice_identificativo):
-                                quadri_records.append(bordo)
+                                quadri_records.append(
+                                    Quadri.extract_from_model(dati_quadro_unione=bordo)
+                                )
                     elif bordo.tipo == "STRADA":
                         strade_records.append(bordo)
                     elif bordo.tipo == "ACQUA":
                         acque_records.append(bordo)
                     elif bordo.tipo == "FABBRICATO":
                         bordo.codice_identificativo = bordo.codice_identificativo[:-1]
-                        fabbricati_records.append(bordo)
+                        fabbricati_records.append(
+                            Fabbricati.extract_from_model(dati_fabbricato=bordo)
+                        )
                     elif bordo.tipo == "PARTICELLA":
                         particelle_records.append(bordo)
                     else:
@@ -423,7 +458,6 @@ async def load_carto(
 
             insert_start_time = time.time()
 
-            breakpoint()
             if fogli_records:
                 logger.info(f"Inserimento di {len(fogli_records)} record in fogli")
                 count = await fogli_repo.insert_many(fogli_records)
@@ -455,7 +489,7 @@ async def load_carto(
         # Verifica i dati inseriti
         tables = [
             "fogli",
-            "quadri",
+            "quadri_unione",
             "particelle",
             "fabbricati",
             "acque",

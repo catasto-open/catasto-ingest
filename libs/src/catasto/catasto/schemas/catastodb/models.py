@@ -10,13 +10,20 @@ from ..building import (
     FabbricatiRecord5,
     Identificativo,
     Indirizzo,
+    UtilitaComune,
 )
 from ..building import Riserva as FabRiserva
-from ..building import UtilitaComune
+from ..carto import CartoBordo
 from ..entitlement import Titolarita
-from ..land import Deduzione, Porzione
+from ..land import (
+    Deduzione,
+    Porzione,
+    TerreniRecord1,
+    TerreniRecord2,
+    TerreniRecord3,
+    TerreniRecord4,
+)
 from ..land import Riserva as TerRiserva
-from ..land import TerreniRecord1, TerreniRecord2, TerreniRecord3, TerreniRecord4
 from ..subject import SoggettiRecordGiuridicPerson, SoggettiRecordPrivatePerson
 
 
@@ -546,4 +553,87 @@ class Ctnonfis(CatastoBaseModel):
             codfiscale=dati_soggetto.codice_fiscale,
             denominaz=dati_soggetto.denominazione,
             sede=dati_soggetto.sede,
+        )
+
+
+class Fogli(CatastoBaseModel):
+    comune: str
+    sezione: str | None
+    foglio: str | None
+    allegato: str | None
+    sviluppo: str | None
+    t_altezza: float | None
+    t_angolo: int | None
+    t_pt_ins: str | None
+    t_ln_anc: str | None
+    geom: str
+
+    def extract_from_model(dati_foglio: CartoBordo):
+        return Fogli(
+            comune=dati_foglio.comune,
+            sezione=dati_foglio.sezione,
+            foglio=dati_foglio.foglio,
+            allegato=dati_foglio.allegato,
+            sviluppo=dati_foglio.sviluppo,
+            t_altezza=safe_cast(dati_foglio.dimensione, float, None),
+            t_angolo=safe_cast(dati_foglio.angolo, int, None),
+            t_pt_ins=f"{dati_foglio.t_pt_ins}",
+            t_ln_anc=f"{dati_foglio.t_ln_anc}",
+            geom=f"{dati_foglio.geometry}",
+        )
+
+
+class Quadri(CatastoBaseModel):
+    comune: str
+    sezione: str | None
+    foglio: str | None
+    allegato: str | None
+    sviluppo: str | None
+    t_altezza: float | None
+    t_angolo: int | None
+    t_pt_ins: str | None
+    t_ln_anc: str | None
+    geom: str
+
+    def extract_from_model(dati_quadro_unione: CartoBordo):
+        return Quadri(
+            comune=dati_quadro_unione.comune,
+            sezione=dati_quadro_unione.sezione,
+            foglio=dati_quadro_unione.foglio,
+            allegato=dati_quadro_unione.allegato,
+            sviluppo=dati_quadro_unione.sviluppo,
+            t_altezza=safe_cast(dati_quadro_unione.dimensione, float, None),
+            t_angolo=safe_cast(dati_quadro_unione.angolo, int, None),
+            t_pt_ins=f"{dati_quadro_unione.t_pt_ins}",
+            t_ln_anc=f"{dati_quadro_unione.t_ln_anc}",
+            geom=f"{dati_quadro_unione.geometry}",
+        )
+
+
+class Fabbricati(CatastoBaseModel):
+    comune: str
+    sezione: str | None
+    foglio: str | None
+    allegato: str | None
+    sviluppo: str | None
+    numero: str | None
+    t_altezza: float | None
+    t_angolo: int | None
+    t_pt_ins: str | None
+    t_ln_anc: str | None
+    geom: str
+
+    def extract_from_model(dati_fabbricato: CartoBordo):
+        return Fabbricati(
+            comune=dati_fabbricato.comune,
+            sezione=dati_fabbricato.sezione,
+            foglio=dati_fabbricato.foglio,
+            allegato=dati_fabbricato.allegato,
+            sviluppo=dati_fabbricato.sviluppo,
+            numero=dati_fabbricato.codice_identificativo,
+            t_altezza=safe_cast(dati_fabbricato.dimensione, float, None),
+            t_angolo=safe_cast(dati_fabbricato.angolo, int, None),
+            t_pt_ins=f"{dati_fabbricato.t_pt_ins}",
+            t_ln_anc=f"{dati_fabbricato.t_ln_anc}",
+            geom=f"{dati_fabbricato.geometry}",
         )
