@@ -2,9 +2,8 @@ import datetime
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Type
 from typing import Tuple as TupleType
-from typing import Type
 
 import duckdb
 import structlog
@@ -13,7 +12,19 @@ from catasto.duckdb.repository import T as TDDB
 from catasto.postgres.dal import PostgresDataAccessLayer
 from catasto.postgres.repository import PostgresRepository
 from catasto.postgres.repository import T as TPG
-from catasto.schemas.catastodb.models import Ctfisica, Ctnonfis, Cttitola
+from catasto.schemas.catastodb.models import (
+    Acque,
+    Ctfisica,
+    Ctnonfis,
+    Cttitola,
+    Fabbricati,
+    Fogli,
+    Particelle,
+    Quadri,
+    Simboli,
+    Strade,
+    Testi,
+)
 from pydantic import BaseModel
 from sqlalchemy import text
 
@@ -64,15 +75,18 @@ class DatabaseSynchronizer:
         # Inizializza la connessione DuckDB
         self.duck_conn = duckdb.connect(self.duckdb_path)
 
-        # Installa e carica l'estensione postgres_scanner
+        # Installa e carica le estensioni postgres_scanner e spatial
         try:
             self.duck_conn.execute("INSTALL postgres_scanner;")
             self.duck_conn.execute("LOAD postgres_scanner;")
+            self.duck_conn.execute("INSTALL spatial;")
+            self.duck_conn.execute("LOAD spatial;")
         except:
             try:
                 self.duck_conn.execute("LOAD postgres_scanner;")
+                self.duck_conn.execute("LOAD spatial;")
             except Exception as e:
-                self.logger.warning("postgres_scanner_not_available", error=str(e))
+                self.logger.warning("Extension not available", error=str(e))
 
         # Inizializza il DAL PostgreSQL
         self.pg_dal = PostgresDataAccessLayer(self.pg_conn_string)
@@ -111,6 +125,28 @@ class DatabaseSynchronizer:
                     "codice",
                     "sezione",
                     "identifica",
+                ]
+            elif entity_type in [
+                Acque,
+                Fabbricati,
+                Fogli,
+                Particelle,
+                Quadri,
+                Simboli,
+                Strade,
+                Testi,
+            ]:
+                primary_keys = [
+                    "comune",
+                    "sezione",
+                    "foglio",
+                    "allegato",
+                    "sviluppo",
+                    # "geom",  # sarebbe corretta da utilizzare come pk
+                    # ma noi vogliamo prima cancellare tutte le geometrie
+                    # per una data tupla di elementi per fogli, particelle, etc.
+                    # Questo ci consente di applicare la strategia di aggiornamento
+                    # tramite delete e nuovo insert di tutte le geometrie inviate.
                 ]
             else:
                 primary_keys = [
@@ -1007,6 +1043,199 @@ class DatabaseSynchronizer:
             )
             raise e
 
+    async def _sync_fogli_with_delete(self, entity_type: Type[BaseModel]):
+        """
+        Sincronizza la tabella fogli con strategia delete-then-insert.
+
+        Utilizza un approccio che prima elimina tutti i record esistenti per una specifica
+        chiave primaria, quindi inserisce i nuovi. Se non esistono record per una chiave,
+        procede direttamente con l'inserimento. Questo è particolarmente adatto per
+        tabelle con geometrie spaziali.
+        """
+        logger = self.logger.bind(action="sync_fogli_with_delete")
+        try:
+            # Ottieni i repository
+            duck_repo = self._get_duck_repository(entity_type, "fogli")
+            pg_repo = self._get_pg_repository(entity_type, "fogli")
+
+            # Ottieni i nomi e i tipi delle colonne
+            schema, table = duck_repo.table_name.split(".")
+            cols_query = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = '{schema}' AND table_name = '{table}'"
+            columns_info = duck_repo.connection.execute(cols_query).fetchall()
+
+            # Estrai solo i nomi delle colonne
+            column_names = [col[0] for col in columns_info]
+
+            # Identifica le colonne geometriche
+            geometry_columns = [
+                col[0] for col in columns_info if col[1].lower() == "geometry"
+            ]
+
+            # Costruisci la query SELECT con conversione delle geometrie in WKT
+            select_parts = []
+            for col_name, data_type in columns_info:
+                if data_type.lower() == "geometry":
+                    # Converte le geometrie in WKT
+                    select_parts.append(f'ST_AsText("{col_name}") as "{col_name}"')
+                else:
+                    select_parts.append(f'"{col_name}"')
+
+            # Esegui la query per ottenere tutti i record con geometrie in formato WKT
+            query = f"SELECT {', '.join(select_parts)} FROM {duck_repo.table_name}"
+            results = duck_repo.connection.execute(query).fetchall()
+
+            # Crea i record con le geometrie già in formato WKT
+            duck_records = []
+            for row in results:
+                record_dict = dict(zip(column_names, row))
+                # Ora i valori di geometria sono in formato WKT (testo) invece di WKB (binario)
+                duck_records.append(entity_type(**record_dict))
+
+            # Ottieni i tipi di colonna da PostgreSQL (necessario per la conversione)
+            column_types_query = f"""
+            SELECT column_name, data_type 
+            FROM information_schema.columns
+            WHERE table_schema = '{self.schema}' AND table_name = 'fogli'
+            ORDER BY ordinal_position;
+            """
+            column_types = {
+                row[0]: row[1]
+                for row in self.pg_dal.connection.execute(
+                    text(column_types_query)
+                ).fetchall()
+            }
+
+            # Raggruppa i record per chiave primaria
+            records_by_key = {}
+            for duck_record in duck_records:
+                # Prepara i dati per PostgreSQL
+                record_dict = await self._prepare_entity_for_pg(
+                    duck_record, "fogli", column_types
+                )
+
+                # Crea una nuova istanza dell'entità
+                record = entity_type(**record_dict)
+
+                # Crea una chiave composita basata sui valori delle chiavi primarie
+                pk_values = tuple(getattr(record, pk) for pk in duck_repo.primary_keys)
+
+                # Aggiungi il record alla lista per questa chiave primaria
+                if pk_values not in records_by_key:
+                    records_by_key[pk_values] = []
+                records_by_key[pk_values].append(record)
+
+            # Log del numero di gruppi di record trovati
+            logger.info(
+                "records_grouped_by_primary_key",
+                group_count=len(records_by_key),
+                total_records=len(duck_records),
+            )
+
+            # Per ogni gruppo di chiavi primarie, processa i record
+            total_deleted = 0
+            total_inserted = 0
+
+            for pk_values, records in records_by_key.items():
+                try:
+                    # Converti la tupla in un dizionario di chiavi primarie
+                    pk_dict = {
+                        pk: val for pk, val in zip(duck_repo.primary_keys, pk_values)
+                    }
+
+                    # 1. Verifica se esistono record con questa chiave primaria in PostgreSQL
+                    check_parts = []
+                    check_params = {}
+
+                    for i, (pk, value) in enumerate(pk_dict.items()):
+                        param_name = f"c{i}"
+                        if value is None:
+                            check_parts.append(f'"{pk}" IS NULL')
+                        else:
+                            check_parts.append(f'"{pk}" = :{param_name}')
+                            check_params[param_name] = value
+
+                    check_clause = " AND ".join(check_parts)
+                    check_query = (
+                        f"SELECT COUNT(*) FROM {self.schema}.fogli WHERE {check_clause}"
+                    )
+
+                    # Esegui la query di verifica
+                    count_result = self.pg_dal.connection.execute(
+                        text(check_query), check_params
+                    ).scalar()
+
+                    # 2. Se esistono record, elimina quelli esistenti
+                    if count_result > 0:
+                        # Prepara la query DELETE con gli stessi parametri
+                        delete_query = (
+                            f"DELETE FROM {self.schema}.fogli WHERE {check_clause}"
+                        )
+
+                        # Esegui la query DELETE
+                        result = self.pg_dal.connection.execute(
+                            text(delete_query), check_params
+                        )
+                        deleted_count = result.rowcount
+                        total_deleted += deleted_count
+
+                        logger.info(
+                            "deleted_records_for_key", pk=pk_dict, count=deleted_count
+                        )
+                    else:
+                        logger.info("no_existing_records_for_key", pk=pk_dict)
+
+                    # 3. Inserisci tutti i nuovi record
+                    inserted_count = 0
+                    for record in records:
+                        try:
+                            await pg_repo.insert(record)
+                            inserted_count += 1
+                            total_inserted += 1
+                            self.stats["inserted"] += 1
+                        except Exception as insert_error:
+                            self.stats["errors"] += 1
+                            logger.error(
+                                "error_inserting_record",
+                                error=str(insert_error),
+                                pk=pk_dict,
+                                error_type=type(insert_error).__name__,
+                            )
+
+                    logger.info(
+                        "inserted_records_for_key",
+                        pk=pk_dict,
+                        count=inserted_count,
+                        attempted=len(records),
+                    )
+
+                except Exception as e:
+                    self.stats["errors"] += 1
+                    logger.error(
+                        "error_processing_key",
+                        pk=pk_dict if "pk_dict" in locals() else pk_values,
+                        error_type=type(e).__name__,
+                        error=str(e),
+                    )
+
+            logger.info(
+                "sync_fogli_completed",
+                total_distinct_keys=len(records_by_key),
+                total_deleted=total_deleted,
+                total_inserted=total_inserted,
+                errors=self.stats["errors"],
+            )
+
+            return
+
+        except Exception as e:
+            # Log dettagliato dell'errore
+            logger.error(
+                "error_in_sync_fogli",
+                error_type=type(e).__name__,
+                error_message=str(e),
+            )
+            raise e
+
     async def _sync_related_table(self, table_name: str, entity_type: Type[BaseModel]):
         """
         Sincronizza una tabella correlata.
@@ -1325,6 +1554,13 @@ class DatabaseSynchronizer:
 
             result = await update_titolarita(syncer=self, entity_types=entity_types)
             logger.info("titolarita", success=result["success"], stats=result["stats"])
+            return result
+
+        elif "fogli" in entity_types:
+            from catasto.postgres.carto import update_fogli
+
+            result = await update_fogli(syncer=self, entity_types=entity_types)
+            logger.info("fogli", success=result["success"], stats=result["stats"])
             return result
 
     async def sync_database_with_backup(
