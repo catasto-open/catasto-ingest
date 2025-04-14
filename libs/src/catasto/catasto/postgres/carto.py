@@ -43,3 +43,87 @@ async def update_fogli(
         logger.exception("sync_failed", error=str(e))
 
         return {"success": False, "reason": "sync_error", "error": str(e)}
+
+
+async def update_particelle(
+    syncer, entity_types: Dict[str, Type[BaseModel]]
+) -> Dict[str, Any]:
+    """
+    Aggiorna le tabelle relative alle particelle.
+
+    Args:
+        syncer: Un'istanza di DatabaseSynchronizer
+        entity_types: Dizionario che mappa nomi di tabelle a tipi di entità Pydantic
+    """
+
+    logger = syncer.logger.bind(operation="update_particelle")
+    # Inizia una transazione nel database PostgreSQL
+    transaction = None
+    try:
+        # Inizia la transazione
+        transaction = syncer.pg_dal.begin_transaction()
+        logger.info("transaction_started")
+
+        # Esegui la sincronizzazione
+        # Prima sincronizza la tabella particelle con la logica di delete-then-insert
+        if "particelle" in syncer.tables and "particelle" in entity_types:
+            await syncer._sync_particelle_with_delete(entity_types["particelle"])
+
+        # Commit della transazione
+        transaction.commit()
+        logger.info("transaction_committed", stats=syncer.stats)
+
+        return {"success": True, "stats": syncer.stats}
+
+    except Exception as e:
+        # Rollback in caso di errore
+        if transaction:
+            transaction.rollback()
+            logger.error("transaction_rolled_back_due_to_error", error=str(e))
+
+        syncer.stats["errors"] += 1
+        logger.exception("sync_failed", error=str(e))
+
+        return {"success": False, "reason": "sync_error", "error": str(e)}
+
+
+async def update_fabbricati(
+    syncer, entity_types: Dict[str, Type[BaseModel]]
+) -> Dict[str, Any]:
+    """
+    Aggiorna le tabelle relative alle fabbricati.
+
+    Args:
+        syncer: Un'istanza di DatabaseSynchronizer
+        entity_types: Dizionario che mappa nomi di tabelle a tipi di entità Pydantic
+    """
+
+    logger = syncer.logger.bind(operation="update_fabbricati")
+    # Inizia una transazione nel database PostgreSQL
+    transaction = None
+    try:
+        # Inizia la transazione
+        transaction = syncer.pg_dal.begin_transaction()
+        logger.info("transaction_started")
+
+        # Esegui la sincronizzazione
+        # Prima sincronizza la tabella fabbricati con la logica di delete-then-insert
+        if "fabbricati" in syncer.tables and "fabbricati" in entity_types:
+            await syncer._sync_fabbricati_with_delete(entity_types["fabbricati"])
+
+        # Commit della transazione
+        transaction.commit()
+        logger.info("transaction_committed", stats=syncer.stats)
+
+        return {"success": True, "stats": syncer.stats}
+
+    except Exception as e:
+        # Rollback in caso di errore
+        if transaction:
+            transaction.rollback()
+            logger.error("transaction_rolled_back_due_to_error", error=str(e))
+
+        syncer.stats["errors"] += 1
+        logger.exception("sync_failed", error=str(e))
+
+        return {"success": False, "reason": "sync_error", "error": str(e)}
