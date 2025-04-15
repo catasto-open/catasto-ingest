@@ -1204,7 +1204,25 @@ class DatabaseSynchronizer:
                     inserted_count = 0
                     for record in records:
                         try:
-                            await pg_repo.insert(record)
+                            # Se il modello ha un campo 'id', modifica il record per usare la sequence
+                            if hasattr(record, "id"):
+                                # Ottieni i dati del record come dizionario
+                                record_dict = record.model_dump()
+
+                                # Imposta l'id per usare la sequence
+                                record_dict["id"] = text(
+                                    "nextval('ctmp.fogli_id_seq'::regclass)"
+                                )
+
+                                # Crea una nuova istanza dell'entità con l'id aggiornato
+                                updated_record = entity_type(**record_dict)
+
+                                # Inserisci il record con l'id generato dalla sequence
+                                await pg_repo.insert(updated_record)
+                            else:
+                                # Se il record non ha un campo id, usa l'inserimento normale
+                                await pg_repo.insert(record)
+
                             inserted_count += 1
                             total_inserted += 1
                             self.stats["inserted"] += 1
@@ -1464,7 +1482,25 @@ class DatabaseSynchronizer:
                     inserted_count = 0
                     for record in records:
                         try:
-                            await pg_repo.insert(record)
+                            # Se il modello ha un campo 'id', modifica il record per usare la sequence
+                            if hasattr(record, "id"):
+                                # Ottieni i dati del record come dizionario
+                                record_dict = record.model_dump()
+
+                                # Imposta l'id per usare la sequence
+                                record_dict["id"] = text(
+                                    "nextval('ctmp.particelle_id_seq'::regclass)"
+                                )
+
+                                # Crea una nuova istanza dell'entità con l'id aggiornato
+                                updated_record = entity_type(**record_dict)
+
+                                # Inserisci il record con l'id generato dalla sequence
+                                await pg_repo.insert(updated_record)
+                            else:
+                                # Se il record non ha un campo id, usa l'inserimento normale
+                                await pg_repo.insert(record)
+
                             inserted_count += 1
                             total_inserted += 1
                             self.stats["inserted"] += 1
@@ -1582,7 +1618,7 @@ class DatabaseSynchronizer:
 
     async def _sync_fabbricati_with_delete(self, entity_type: Type[BaseModel]):
         """
-        Sincronizza la tabella particelle con strategia delete-then-insert.
+        Sincronizza la tabella fabbricati con strategia delete-then-insert.
 
         Utilizza un approccio che prima elimina tutti i record esistenti per una specifica
         chiave primaria, quindi inserisce i nuovi. Se non esistono record per una chiave,
@@ -1724,7 +1760,25 @@ class DatabaseSynchronizer:
                     inserted_count = 0
                     for record in records:
                         try:
-                            await pg_repo.insert(record)
+                            # Se il modello ha un campo 'id', modifica il record per usare la sequence
+                            if hasattr(record, "id"):
+                                # Ottieni i dati del record come dizionario
+                                record_dict = record.model_dump()
+
+                                # Imposta l'id per usare la sequence
+                                record_dict["id"] = text(
+                                    "nextval('ctmp.fabbricati_id_seq'::regclass)"
+                                )
+
+                                # Crea una nuova istanza dell'entità con l'id aggiornato
+                                updated_record = entity_type(**record_dict)
+
+                                # Inserisci il record con l'id generato dalla sequence
+                                await pg_repo.insert(updated_record)
+                            else:
+                                # Se il record non ha un campo id, usa l'inserimento normale
+                                await pg_repo.insert(record)
+
                             inserted_count += 1
                             total_inserted += 1
                             self.stats["inserted"] += 1
