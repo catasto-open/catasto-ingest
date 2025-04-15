@@ -493,6 +493,7 @@ class DatabaseSynchronizer:
     ) -> Dict[str, Any]:
         """
         Prepara un'entità per l'inserimento in PostgreSQL, convertendo i valori ai tipi appropriati.
+        Applica regole specifiche per i valori di tipo stringa se lo schema è "ctmp".
         """
         # Ottieni i tipi di colonna se non sono stati forniti
         if column_types is None:
@@ -513,11 +514,33 @@ class DatabaseSynchronizer:
         entity_dict = entity.model_dump()
         result_dict = {}
 
+        # Campi che necessitano di trattamento speciale solo per schema ctmp
+        string_fields = [
+            "foglio",
+            "numero",
+        ]
+
         for col_name, value in entity_dict.items():
             if col_name in column_types:
-                result_dict[col_name] = await self._convert_value_to_pg_type(
-                    value, column_types[col_name]
-                )
+                # Logica speciale per schema ctmp
+                if (
+                    self.schema == "ctmp"
+                    and col_name in string_fields
+                    and isinstance(value, str)
+                ):
+                    # Se contiene solo numeri, rimuovi gli zeri iniziali
+                    if value.isdigit():
+                        result_dict[col_name] = str(
+                            int(value)
+                        )  # Converte a int e poi ritorna a str
+                    else:
+                        # Se contiene lettere, mantieni il valore originale
+                        result_dict[col_name] = value
+                else:
+                    # Per gli altri campi o schema diverso da ctmp, applica la conversione standard
+                    result_dict[col_name] = await self._convert_value_to_pg_type(
+                        value, column_types[col_name]
+                    )
             else:
                 # Se la colonna non esiste in PostgreSQL, mantieni il valore originale
                 result_dict[col_name] = value
