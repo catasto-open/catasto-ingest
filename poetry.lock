@@ -621,7 +621,7 @@ develop = ["aiomisc-pytest", "pytest", "pytest-cov"]
 
 [[package]]
 name = "catasto"
-version = "0.17.0"
+version = "0.18.0"
 description = ""
 optional = false
 python-versions = "^3.10"
