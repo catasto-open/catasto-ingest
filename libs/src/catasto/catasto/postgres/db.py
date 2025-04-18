@@ -1917,6 +1917,1120 @@ class DatabaseSynchronizer:
             )
             raise e
 
+    async def _sync_quadri_with_delete(self, entity_type: Type[BaseModel]):
+        """
+        Sincronizza la tabella quadri_unione con strategia delete-then-insert.
+
+        Utilizza un approccio che prima elimina tutti i record esistenti per una specifica
+        chiave primaria, quindi inserisce i nuovi. Se non esistono record per una chiave,
+        procede direttamente con l'inserimento. Dopo l'inserimento, trasforma le geometrie
+        dal SRID 3004 al SRID 6708 direttamente in PostgreSQL.
+        """
+        logger = self.logger.bind(action="sync_quadri_with_delete")
+        try:
+            # Ottieni i repository
+            duck_repo = self._get_duck_repository(entity_type, "quadri")
+            pg_repo = self._get_pg_repository(entity_type, "quadri")
+
+            # Ottieni i nomi e i tipi delle colonne
+            schema, table = duck_repo.table_name.split(".")
+            cols_query = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = '{schema}' AND table_name = '{table}'"
+            columns_info = duck_repo.connection.execute(cols_query).fetchall()
+
+            # Estrai solo i nomi delle colonne
+            column_names = [col[0] for col in columns_info]
+
+            # Identifica le colonne geometriche
+            geometry_columns = [
+                col[0] for col in columns_info if col[1].lower() == "geometry"
+            ]
+
+            # Costruisci la query SELECT con conversione solo in WKT (senza trasformazione SRID)
+            select_parts = []
+            for col_name, data_type in columns_info:
+                if data_type.lower() == "geometry":
+                    # Converte le geometrie in WKT senza cambiare SRID
+                    select_parts.append(f'ST_AsText("{col_name}") as "{col_name}"')
+                else:
+                    select_parts.append(f'"{col_name}"')
+
+            # Esegui la query per ottenere tutti i record con geometrie in formato WKT
+            query = f"SELECT {', '.join(select_parts)} FROM {duck_repo.table_name}"
+            results = duck_repo.connection.execute(query).fetchall()
+
+            # Crea i record con le geometrie già in formato WKT
+            duck_records = []
+            for row in results:
+                record_dict = dict(zip(column_names, row))
+                # Ora i valori di geometria sono in formato WKT (testo) invece di WKB (binario)
+                duck_records.append(entity_type(**record_dict))
+
+            # Ottieni i tipi di colonna da PostgreSQL (necessario per la conversione)
+            column_types_query = f"""
+            SELECT column_name, data_type 
+            FROM information_schema.columns
+            WHERE table_schema = '{self.schema}' AND table_name = 'quadri_unione'
+            ORDER BY ordinal_position;
+            """
+            column_types = {
+                row[0]: row[1]
+                for row in self.pg_dal.connection.execute(
+                    text(column_types_query)
+                ).fetchall()
+            }
+
+            # Raggruppa i record per chiave primaria
+            records_by_key = {}
+            for duck_record in duck_records:
+                # Prepara i dati per PostgreSQL
+                record_dict = await self._prepare_entity_for_pg(
+                    duck_record, "quadri_unione", column_types
+                )
+
+                # Crea una nuova istanza dell'entità
+                record = entity_type(**record_dict)
+
+                # Crea una chiave composita basata sui valori delle chiavi primarie
+                pk_values = tuple(getattr(record, pk) for pk in duck_repo.primary_keys)
+
+                # Aggiungi il record alla lista per questa chiave primaria
+                if pk_values not in records_by_key:
+                    records_by_key[pk_values] = []
+                records_by_key[pk_values].append(record)
+
+            # Log del numero di gruppi di record trovati
+            logger.info(
+                "records_grouped_by_primary_key",
+                group_count=len(records_by_key),
+                total_records=len(duck_records),
+            )
+
+            # Per ogni gruppo di chiavi primarie, processa i record
+            total_deleted = 0
+            total_inserted = 0
+            total_transformed = 0
+
+            for pk_values, records in records_by_key.items():
+                try:
+                    # Converti la tupla in un dizionario di chiavi primarie
+                    pk_dict = {
+                        pk: val for pk, val in zip(duck_repo.primary_keys, pk_values)
+                    }
+
+                    # 1. Verifica se esistono record con questa chiave primaria in PostgreSQL
+                    check_parts = []
+                    check_params = {}
+
+                    for i, (pk, value) in enumerate(pk_dict.items()):
+                        param_name = f"c{i}"
+                        if value is None:
+                            check_parts.append(f'"{pk}" IS NULL')
+                        else:
+                            check_parts.append(f'"{pk}" = :{param_name}')
+                            check_params[param_name] = value
+
+                    check_clause = " AND ".join(check_parts)
+                    check_query = f"SELECT COUNT(*) FROM {self.schema}.quadri_unione WHERE {check_clause}"
+
+                    # Esegui la query di verifica
+                    count_result = self.pg_dal.connection.execute(
+                        text(check_query), check_params
+                    ).scalar()
+
+                    # 2. Se esistono record, elimina quelli esistenti
+                    if count_result > 0:
+                        # Prepara la query DELETE con gli stessi parametri
+                        delete_query = f"DELETE FROM {self.schema}.quadri_unione WHERE {check_clause}"
+
+                        # Esegui la query DELETE
+                        result = self.pg_dal.connection.execute(
+                            text(delete_query), check_params
+                        )
+                        deleted_count = result.rowcount
+                        total_deleted += deleted_count
+
+                        logger.info(
+                            "deleted_records_for_key", pk=pk_dict, count=deleted_count
+                        )
+                    else:
+                        logger.info("no_existing_records_for_key", pk=pk_dict)
+
+                    # 3. Inserisci tutti i nuovi record
+                    inserted_count = 0
+                    for record in records:
+                        try:
+                            # Se il modello ha un campo 'id', modifica il record per usare la sequence
+                            if hasattr(record, "id"):
+                                # Ottieni i dati del record come dizionario
+                                record_dict = record.model_dump()
+
+                                # Imposta l'id per usare la sequence
+                                record_dict["id"] = text(
+                                    "nextval('ctmp.quadri_unione_id_seq'::regclass)"
+                                )
+
+                                # Crea una nuova istanza dell'entità con l'id aggiornato
+                                updated_record = entity_type(**record_dict)
+
+                                # Inserisci il record con l'id generato dalla sequence
+                                await pg_repo.insert(updated_record)
+                            else:
+                                # Se il record non ha un campo id, usa l'inserimento normale
+                                await pg_repo.insert(record)
+
+                            inserted_count += 1
+                            total_inserted += 1
+                            self.stats["inserted"] += 1
+                        except Exception as insert_error:
+                            self.stats["errors"] += 1
+                            logger.error(
+                                "error_inserting_record",
+                                error=str(insert_error),
+                                pk=pk_dict,
+                                error_type=type(insert_error).__name__,
+                            )
+
+                    logger.info(
+                        "inserted_records_for_key",
+                        pk=pk_dict,
+                        count=inserted_count,
+                        attempted=len(records),
+                    )
+
+                    # 4. Trasforma le geometrie da SRID 3004 a SRID 6708 direttamente in PostgreSQL
+                    if inserted_count > 0:
+                        # Le colonne geometriche da trasformare
+                        geom_columns = ["geom", "t_pt_ins", "t_ln_anc"]
+                        transformed_columns = 0
+
+                        for geom_column in geom_columns:
+                            # Verifica se la colonna esiste prima di provare l'aggiornamento
+                            try:
+                                # Costruisci la query di trasformazione
+                                transform_query = f"""
+                                UPDATE {self.schema}.quadri_unione 
+                                SET "{geom_column}" = ST_Transform(ST_SetSRID("{geom_column}", 3004), 6708)
+                                WHERE {check_clause} AND "{geom_column}" IS NOT NULL
+                                """
+
+                                # Esegui la query di trasformazione
+                                transform_result = self.pg_dal.connection.execute(
+                                    text(transform_query), check_params
+                                )
+                                transformed_count = transform_result.rowcount
+
+                                if transformed_count > 0:
+                                    transformed_columns += 1
+                                    total_transformed += transformed_count
+                                    logger.info(
+                                        f"transformed_{geom_column}_from_3004_to_6708",
+                                        pk=pk_dict,
+                                        count=transformed_count,
+                                    )
+
+                                    # Verifica SRID dopo la trasformazione
+                                    verify_query = f"""
+                                    SELECT ST_SRID("{geom_column}") 
+                                    FROM {self.schema}.quadri_unione 
+                                    WHERE {check_clause} AND "{geom_column}" IS NOT NULL 
+                                    LIMIT 1
+                                    """
+                                    try:
+                                        srid_result = self.pg_dal.connection.execute(
+                                            text(verify_query), check_params
+                                        ).scalar()
+                                        logger.info(
+                                            f"verified_srid_after_transform_{geom_column}",
+                                            pk=pk_dict,
+                                            srid=srid_result,
+                                        )
+                                    except Exception as verify_error:
+                                        logger.warning(
+                                            f"could_not_verify_srid_{geom_column}",
+                                            pk=pk_dict,
+                                            error=str(verify_error),
+                                        )
+                            except Exception as transform_error:
+                                logger.warning(
+                                    f"error_transforming_{geom_column}",
+                                    pk=pk_dict,
+                                    error=str(transform_error),
+                                    error_type=type(transform_error).__name__,
+                                )
+
+                        logger.info(
+                            "geometry_transformation_completed",
+                            pk=pk_dict,
+                            transformed_columns=transformed_columns,
+                        )
+
+                except Exception as e:
+                    self.stats["errors"] += 1
+                    logger.error(
+                        "error_processing_key",
+                        pk=pk_dict if "pk_dict" in locals() else pk_values,
+                        error_type=type(e).__name__,
+                        error=str(e),
+                    )
+
+            logger.info(
+                "sync_quadri_completed",
+                total_distinct_keys=len(records_by_key),
+                total_deleted=total_deleted,
+                total_inserted=total_inserted,
+                total_transformed=total_transformed,
+                errors=self.stats["errors"],
+            )
+
+            return
+
+        except Exception as e:
+            # Log dettagliato dell'errore
+            logger.error(
+                "error_in_sync_quadri",
+                error_type=type(e).__name__,
+                error_message=str(e),
+            )
+            raise e
+
+    async def _sync_acque_with_delete(self, entity_type: Type[BaseModel]):
+        """
+        Sincronizza la tabella acque con strategia delete-then-insert.
+
+        Utilizza un approccio che prima elimina tutti i record esistenti per una specifica
+        chiave primaria, quindi inserisce i nuovi. Se non esistono record per una chiave,
+        procede direttamente con l'inserimento. Dopo l'inserimento, trasforma le geometrie
+        dal SRID 3004 al SRID 6708 direttamente in PostgreSQL.
+        """
+        logger = self.logger.bind(action="sync_acque_with_delete")
+        try:
+            # Ottieni i repository
+            duck_repo = self._get_duck_repository(entity_type, "acque")
+            pg_repo = self._get_pg_repository(entity_type, "acque")
+
+            # Ottieni i nomi e i tipi delle colonne
+            schema, table = duck_repo.table_name.split(".")
+            cols_query = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = '{schema}' AND table_name = '{table}'"
+            columns_info = duck_repo.connection.execute(cols_query).fetchall()
+
+            # Estrai solo i nomi delle colonne
+            column_names = [col[0] for col in columns_info]
+
+            # Identifica le colonne geometriche
+            geometry_columns = [
+                col[0] for col in columns_info if col[1].lower() == "geometry"
+            ]
+
+            # Costruisci la query SELECT con conversione solo in WKT (senza trasformazione SRID)
+            select_parts = []
+            for col_name, data_type in columns_info:
+                if data_type.lower() == "geometry":
+                    # Converte le geometrie in WKT senza cambiare SRID
+                    select_parts.append(f'ST_AsText("{col_name}") as "{col_name}"')
+                else:
+                    select_parts.append(f'"{col_name}"')
+
+            # Esegui la query per ottenere tutti i record con geometrie in formato WKT
+            query = f"SELECT {', '.join(select_parts)} FROM {duck_repo.table_name}"
+            results = duck_repo.connection.execute(query).fetchall()
+
+            # Crea i record con le geometrie già in formato WKT
+            duck_records = []
+            for row in results:
+                record_dict = dict(zip(column_names, row))
+                # Ora i valori di geometria sono in formato WKT (testo) invece di WKB (binario)
+                duck_records.append(entity_type(**record_dict))
+
+            # Ottieni i tipi di colonna da PostgreSQL (necessario per la conversione)
+            column_types_query = f"""
+            SELECT column_name, data_type 
+            FROM information_schema.columns
+            WHERE table_schema = '{self.schema}' AND table_name = 'acque'
+            ORDER BY ordinal_position;
+            """
+            column_types = {
+                row[0]: row[1]
+                for row in self.pg_dal.connection.execute(
+                    text(column_types_query)
+                ).fetchall()
+            }
+
+            # Raggruppa i record per chiave primaria
+            records_by_key = {}
+            for duck_record in duck_records:
+                # Prepara i dati per PostgreSQL
+                record_dict = await self._prepare_entity_for_pg(
+                    duck_record, "acque", column_types
+                )
+
+                # Crea una nuova istanza dell'entità
+                record = entity_type(**record_dict)
+
+                # Crea una chiave composita basata sui valori delle chiavi primarie
+                pk_values = tuple(getattr(record, pk) for pk in duck_repo.primary_keys)
+
+                # Aggiungi il record alla lista per questa chiave primaria
+                if pk_values not in records_by_key:
+                    records_by_key[pk_values] = []
+                records_by_key[pk_values].append(record)
+
+            # Log del numero di gruppi di record trovati
+            logger.info(
+                "records_grouped_by_primary_key",
+                group_count=len(records_by_key),
+                total_records=len(duck_records),
+            )
+
+            # Per ogni gruppo di chiavi primarie, processa i record
+            total_deleted = 0
+            total_inserted = 0
+            total_transformed = 0
+
+            for pk_values, records in records_by_key.items():
+                try:
+                    # Converti la tupla in un dizionario di chiavi primarie
+                    pk_dict = {
+                        pk: val for pk, val in zip(duck_repo.primary_keys, pk_values)
+                    }
+
+                    # 1. Verifica se esistono record con questa chiave primaria in PostgreSQL
+                    check_parts = []
+                    check_params = {}
+
+                    for i, (pk, value) in enumerate(pk_dict.items()):
+                        param_name = f"c{i}"
+                        if value is None:
+                            check_parts.append(f'"{pk}" IS NULL')
+                        else:
+                            check_parts.append(f'"{pk}" = :{param_name}')
+                            check_params[param_name] = value
+
+                    check_clause = " AND ".join(check_parts)
+                    check_query = (
+                        f"SELECT COUNT(*) FROM {self.schema}.acque WHERE {check_clause}"
+                    )
+
+                    # Esegui la query di verifica
+                    count_result = self.pg_dal.connection.execute(
+                        text(check_query), check_params
+                    ).scalar()
+
+                    # 2. Se esistono record, elimina quelli esistenti
+                    if count_result > 0:
+                        # Prepara la query DELETE con gli stessi parametri
+                        delete_query = (
+                            f"DELETE FROM {self.schema}.acque WHERE {check_clause}"
+                        )
+
+                        # Esegui la query DELETE
+                        result = self.pg_dal.connection.execute(
+                            text(delete_query), check_params
+                        )
+                        deleted_count = result.rowcount
+                        total_deleted += deleted_count
+
+                        logger.info(
+                            "deleted_records_for_key", pk=pk_dict, count=deleted_count
+                        )
+                    else:
+                        logger.info("no_existing_records_for_key", pk=pk_dict)
+
+                    # 3. Inserisci tutti i nuovi record
+                    inserted_count = 0
+                    for record in records:
+                        try:
+                            # Se il modello ha un campo 'id', modifica il record per usare la sequence
+                            if hasattr(record, "id"):
+                                # Ottieni i dati del record come dizionario
+                                record_dict = record.model_dump()
+
+                                # Imposta l'id per usare la sequence
+                                record_dict["id"] = text(
+                                    "nextval('ctmp.acque_id_seq'::regclass)"
+                                )
+
+                                # Crea una nuova istanza dell'entità con l'id aggiornato
+                                updated_record = entity_type(**record_dict)
+
+                                # Inserisci il record con l'id generato dalla sequence
+                                await pg_repo.insert(updated_record)
+                            else:
+                                # Se il record non ha un campo id, usa l'inserimento normale
+                                await pg_repo.insert(record)
+
+                            inserted_count += 1
+                            total_inserted += 1
+                            self.stats["inserted"] += 1
+                        except Exception as insert_error:
+                            self.stats["errors"] += 1
+                            logger.error(
+                                "error_inserting_record",
+                                error=str(insert_error),
+                                pk=pk_dict,
+                                error_type=type(insert_error).__name__,
+                            )
+
+                    logger.info(
+                        "inserted_records_for_key",
+                        pk=pk_dict,
+                        count=inserted_count,
+                        attempted=len(records),
+                    )
+
+                    # 4. Trasforma le geometrie da SRID 3004 a SRID 6708 direttamente in PostgreSQL
+                    if inserted_count > 0:
+                        # Le colonne geometriche da trasformare
+                        geom_columns = ["geom", "t_pt_ins", "t_ln_anc"]
+                        transformed_columns = 0
+
+                        for geom_column in geom_columns:
+                            # Verifica se la colonna esiste prima di provare l'aggiornamento
+                            try:
+                                # Costruisci la query di trasformazione
+                                transform_query = f"""
+                                UPDATE {self.schema}.acque 
+                                SET "{geom_column}" = ST_Transform(ST_SetSRID("{geom_column}", 3004), 6708)
+                                WHERE {check_clause} AND "{geom_column}" IS NOT NULL
+                                """
+
+                                # Esegui la query di trasformazione
+                                transform_result = self.pg_dal.connection.execute(
+                                    text(transform_query), check_params
+                                )
+                                transformed_count = transform_result.rowcount
+
+                                if transformed_count > 0:
+                                    transformed_columns += 1
+                                    total_transformed += transformed_count
+                                    logger.info(
+                                        f"transformed_{geom_column}_from_3004_to_6708",
+                                        pk=pk_dict,
+                                        count=transformed_count,
+                                    )
+
+                                    # Verifica SRID dopo la trasformazione
+                                    verify_query = f"""
+                                    SELECT ST_SRID("{geom_column}") 
+                                    FROM {self.schema}.acque 
+                                    WHERE {check_clause} AND "{geom_column}" IS NOT NULL 
+                                    LIMIT 1
+                                    """
+                                    try:
+                                        srid_result = self.pg_dal.connection.execute(
+                                            text(verify_query), check_params
+                                        ).scalar()
+                                        logger.info(
+                                            f"verified_srid_after_transform_{geom_column}",
+                                            pk=pk_dict,
+                                            srid=srid_result,
+                                        )
+                                    except Exception as verify_error:
+                                        logger.warning(
+                                            f"could_not_verify_srid_{geom_column}",
+                                            pk=pk_dict,
+                                            error=str(verify_error),
+                                        )
+                            except Exception as transform_error:
+                                logger.warning(
+                                    f"error_transforming_{geom_column}",
+                                    pk=pk_dict,
+                                    error=str(transform_error),
+                                    error_type=type(transform_error).__name__,
+                                )
+
+                        logger.info(
+                            "geometry_transformation_completed",
+                            pk=pk_dict,
+                            transformed_columns=transformed_columns,
+                        )
+
+                except Exception as e:
+                    self.stats["errors"] += 1
+                    logger.error(
+                        "error_processing_key",
+                        pk=pk_dict if "pk_dict" in locals() else pk_values,
+                        error_type=type(e).__name__,
+                        error=str(e),
+                    )
+
+            logger.info(
+                "sync_acque_completed",
+                total_distinct_keys=len(records_by_key),
+                total_deleted=total_deleted,
+                total_inserted=total_inserted,
+                total_transformed=total_transformed,
+                errors=self.stats["errors"],
+            )
+
+            return
+
+        except Exception as e:
+            # Log dettagliato dell'errore
+            logger.error(
+                "error_in_sync_acque",
+                error_type=type(e).__name__,
+                error_message=str(e),
+            )
+            raise e
+
+    async def _sync_strade_with_delete(self, entity_type: Type[BaseModel]):
+        """
+        Sincronizza la tabella strade con strategia delete-then-insert.
+
+        Utilizza un approccio che prima elimina tutti i record esistenti per una specifica
+        chiave primaria, quindi inserisce i nuovi. Se non esistono record per una chiave,
+        procede direttamente con l'inserimento. Dopo l'inserimento, trasforma le geometrie
+        dal SRID 3004 al SRID 6708 direttamente in PostgreSQL.
+        """
+        logger = self.logger.bind(action="sync_strade_with_delete")
+        try:
+            # Ottieni i repository
+            duck_repo = self._get_duck_repository(entity_type, "strade")
+            pg_repo = self._get_pg_repository(entity_type, "strade")
+
+            # Ottieni i nomi e i tipi delle colonne
+            schema, table = duck_repo.table_name.split(".")
+            cols_query = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = '{schema}' AND table_name = '{table}'"
+            columns_info = duck_repo.connection.execute(cols_query).fetchall()
+
+            # Estrai solo i nomi delle colonne
+            column_names = [col[0] for col in columns_info]
+
+            # Identifica le colonne geometriche
+            geometry_columns = [
+                col[0] for col in columns_info if col[1].lower() == "geometry"
+            ]
+
+            # Costruisci la query SELECT con conversione solo in WKT (senza trasformazione SRID)
+            select_parts = []
+            for col_name, data_type in columns_info:
+                if data_type.lower() == "geometry":
+                    # Converte le geometrie in WKT senza cambiare SRID
+                    select_parts.append(f'ST_AsText("{col_name}") as "{col_name}"')
+                else:
+                    select_parts.append(f'"{col_name}"')
+
+            # Esegui la query per ottenere tutti i record con geometrie in formato WKT
+            query = f"SELECT {', '.join(select_parts)} FROM {duck_repo.table_name}"
+            results = duck_repo.connection.execute(query).fetchall()
+
+            # Crea i record con le geometrie già in formato WKT
+            duck_records = []
+            for row in results:
+                record_dict = dict(zip(column_names, row))
+                # Ora i valori di geometria sono in formato WKT (testo) invece di WKB (binario)
+                duck_records.append(entity_type(**record_dict))
+
+            # Ottieni i tipi di colonna da PostgreSQL (necessario per la conversione)
+            column_types_query = f"""
+            SELECT column_name, data_type 
+            FROM information_schema.columns
+            WHERE table_schema = '{self.schema}' AND table_name = 'strade'
+            ORDER BY ordinal_position;
+            """
+            column_types = {
+                row[0]: row[1]
+                for row in self.pg_dal.connection.execute(
+                    text(column_types_query)
+                ).fetchall()
+            }
+
+            # Raggruppa i record per chiave primaria
+            records_by_key = {}
+            for duck_record in duck_records:
+                # Prepara i dati per PostgreSQL
+                record_dict = await self._prepare_entity_for_pg(
+                    duck_record, "strade", column_types
+                )
+
+                # Crea una nuova istanza dell'entità
+                record = entity_type(**record_dict)
+
+                # Crea una chiave composita basata sui valori delle chiavi primarie
+                pk_values = tuple(getattr(record, pk) for pk in duck_repo.primary_keys)
+
+                # Aggiungi il record alla lista per questa chiave primaria
+                if pk_values not in records_by_key:
+                    records_by_key[pk_values] = []
+                records_by_key[pk_values].append(record)
+
+            # Log del numero di gruppi di record trovati
+            logger.info(
+                "records_grouped_by_primary_key",
+                group_count=len(records_by_key),
+                total_records=len(duck_records),
+            )
+
+            # Per ogni gruppo di chiavi primarie, processa i record
+            total_deleted = 0
+            total_inserted = 0
+            total_transformed = 0
+
+            for pk_values, records in records_by_key.items():
+                try:
+                    # Converti la tupla in un dizionario di chiavi primarie
+                    pk_dict = {
+                        pk: val for pk, val in zip(duck_repo.primary_keys, pk_values)
+                    }
+
+                    # 1. Verifica se esistono record con questa chiave primaria in PostgreSQL
+                    check_parts = []
+                    check_params = {}
+
+                    for i, (pk, value) in enumerate(pk_dict.items()):
+                        param_name = f"c{i}"
+                        if value is None:
+                            check_parts.append(f'"{pk}" IS NULL')
+                        else:
+                            check_parts.append(f'"{pk}" = :{param_name}')
+                            check_params[param_name] = value
+
+                    check_clause = " AND ".join(check_parts)
+                    check_query = f"SELECT COUNT(*) FROM {self.schema}.strade WHERE {check_clause}"
+
+                    # Esegui la query di verifica
+                    count_result = self.pg_dal.connection.execute(
+                        text(check_query), check_params
+                    ).scalar()
+
+                    # 2. Se esistono record, elimina quelli esistenti
+                    if count_result > 0:
+                        # Prepara la query DELETE con gli stessi parametri
+                        delete_query = (
+                            f"DELETE FROM {self.schema}.strade WHERE {check_clause}"
+                        )
+
+                        # Esegui la query DELETE
+                        result = self.pg_dal.connection.execute(
+                            text(delete_query), check_params
+                        )
+                        deleted_count = result.rowcount
+                        total_deleted += deleted_count
+
+                        logger.info(
+                            "deleted_records_for_key", pk=pk_dict, count=deleted_count
+                        )
+                    else:
+                        logger.info("no_existing_records_for_key", pk=pk_dict)
+
+                    # 3. Inserisci tutti i nuovi record
+                    inserted_count = 0
+                    for record in records:
+                        try:
+                            # Se il modello ha un campo 'id', modifica il record per usare la sequence
+                            if hasattr(record, "id"):
+                                # Ottieni i dati del record come dizionario
+                                record_dict = record.model_dump()
+
+                                # Imposta l'id per usare la sequence
+                                record_dict["id"] = text(
+                                    "nextval('ctmp.strade_id_seq'::regclass)"
+                                )
+
+                                # Crea una nuova istanza dell'entità con l'id aggiornato
+                                updated_record = entity_type(**record_dict)
+
+                                # Inserisci il record con l'id generato dalla sequence
+                                await pg_repo.insert(updated_record)
+                            else:
+                                # Se il record non ha un campo id, usa l'inserimento normale
+                                await pg_repo.insert(record)
+
+                            inserted_count += 1
+                            total_inserted += 1
+                            self.stats["inserted"] += 1
+                        except Exception as insert_error:
+                            self.stats["errors"] += 1
+                            logger.error(
+                                "error_inserting_record",
+                                error=str(insert_error),
+                                pk=pk_dict,
+                                error_type=type(insert_error).__name__,
+                            )
+
+                    logger.info(
+                        "inserted_records_for_key",
+                        pk=pk_dict,
+                        count=inserted_count,
+                        attempted=len(records),
+                    )
+
+                    # 4. Trasforma le geometrie da SRID 3004 a SRID 6708 direttamente in PostgreSQL
+                    if inserted_count > 0:
+                        # Le colonne geometriche da trasformare
+                        geom_columns = ["geom", "t_pt_ins", "t_ln_anc"]
+                        transformed_columns = 0
+
+                        for geom_column in geom_columns:
+                            # Verifica se la colonna esiste prima di provare l'aggiornamento
+                            try:
+                                # Costruisci la query di trasformazione
+                                transform_query = f"""
+                                UPDATE {self.schema}.strade 
+                                SET "{geom_column}" = ST_Transform(ST_SetSRID("{geom_column}", 3004), 6708)
+                                WHERE {check_clause} AND "{geom_column}" IS NOT NULL
+                                """
+
+                                # Esegui la query di trasformazione
+                                transform_result = self.pg_dal.connection.execute(
+                                    text(transform_query), check_params
+                                )
+                                transformed_count = transform_result.rowcount
+
+                                if transformed_count > 0:
+                                    transformed_columns += 1
+                                    total_transformed += transformed_count
+                                    logger.info(
+                                        f"transformed_{geom_column}_from_3004_to_6708",
+                                        pk=pk_dict,
+                                        count=transformed_count,
+                                    )
+
+                                    # Verifica SRID dopo la trasformazione
+                                    verify_query = f"""
+                                    SELECT ST_SRID("{geom_column}") 
+                                    FROM {self.schema}.strade 
+                                    WHERE {check_clause} AND "{geom_column}" IS NOT NULL 
+                                    LIMIT 1
+                                    """
+                                    try:
+                                        srid_result = self.pg_dal.connection.execute(
+                                            text(verify_query), check_params
+                                        ).scalar()
+                                        logger.info(
+                                            f"verified_srid_after_transform_{geom_column}",
+                                            pk=pk_dict,
+                                            srid=srid_result,
+                                        )
+                                    except Exception as verify_error:
+                                        logger.warning(
+                                            f"could_not_verify_srid_{geom_column}",
+                                            pk=pk_dict,
+                                            error=str(verify_error),
+                                        )
+                            except Exception as transform_error:
+                                logger.warning(
+                                    f"error_transforming_{geom_column}",
+                                    pk=pk_dict,
+                                    error=str(transform_error),
+                                    error_type=type(transform_error).__name__,
+                                )
+
+                        logger.info(
+                            "geometry_transformation_completed",
+                            pk=pk_dict,
+                            transformed_columns=transformed_columns,
+                        )
+
+                except Exception as e:
+                    self.stats["errors"] += 1
+                    logger.error(
+                        "error_processing_key",
+                        pk=pk_dict if "pk_dict" in locals() else pk_values,
+                        error_type=type(e).__name__,
+                        error=str(e),
+                    )
+
+            logger.info(
+                "sync_strade_completed",
+                total_distinct_keys=len(records_by_key),
+                total_deleted=total_deleted,
+                total_inserted=total_inserted,
+                total_transformed=total_transformed,
+                errors=self.stats["errors"],
+            )
+
+            return
+
+        except Exception as e:
+            # Log dettagliato dell'errore
+            logger.error(
+                "error_in_sync_strade",
+                error_type=type(e).__name__,
+                error_message=str(e),
+            )
+            raise e
+
+    async def _sync_testi_with_delete(self, entity_type: Type[BaseModel]):
+        """
+        Sincronizza la tabella testi con strategia delete-then-insert.
+
+        Utilizza un approccio che prima elimina tutti i record esistenti per una specifica
+        chiave primaria, quindi inserisce i nuovi. Se non esistono record per una chiave,
+        procede direttamente con l'inserimento. Dopo l'inserimento, trasforma le geometrie
+        dal SRID 3004 al SRID 6708 direttamente in PostgreSQL.
+        """
+        logger = self.logger.bind(action="sync_testi_with_delete")
+        try:
+            # Ottieni i repository
+            duck_repo = self._get_duck_repository(entity_type, "testi")
+            pg_repo = self._get_pg_repository(entity_type, "testi")
+
+            # Ottieni i nomi e i tipi delle colonne
+            schema, table = duck_repo.table_name.split(".")
+            cols_query = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = '{schema}' AND table_name = '{table}'"
+            columns_info = duck_repo.connection.execute(cols_query).fetchall()
+
+            # Estrai solo i nomi delle colonne
+            column_names = [col[0] for col in columns_info]
+
+            # Identifica le colonne geometriche
+            geometry_columns = [
+                col[0] for col in columns_info if col[1].lower() == "geometry"
+            ]
+
+            # Costruisci la query SELECT con conversione solo in WKT (senza trasformazione SRID)
+            select_parts = []
+            for col_name, data_type in columns_info:
+                if data_type.lower() == "geometry":
+                    # Converte le geometrie in WKT senza cambiare SRID
+                    select_parts.append(f'ST_AsText("{col_name}") as "{col_name}"')
+                else:
+                    select_parts.append(f'"{col_name}"')
+
+            # Esegui la query per ottenere tutti i record con geometrie in formato WKT
+            query = f"SELECT {', '.join(select_parts)} FROM {duck_repo.table_name}"
+            results = duck_repo.connection.execute(query).fetchall()
+
+            # Crea i record con le geometrie già in formato WKT
+            duck_records = []
+            for row in results:
+                record_dict = dict(zip(column_names, row))
+                # Ora i valori di geometria sono in formato WKT (testo) invece di WKB (binario)
+                duck_records.append(entity_type(**record_dict))
+
+            # Ottieni i tipi di colonna da PostgreSQL (necessario per la conversione)
+            column_types_query = f"""
+            SELECT column_name, data_type 
+            FROM information_schema.columns
+            WHERE table_schema = '{self.schema}' AND table_name = 'testi'
+            ORDER BY ordinal_position;
+            """
+            column_types = {
+                row[0]: row[1]
+                for row in self.pg_dal.connection.execute(
+                    text(column_types_query)
+                ).fetchall()
+            }
+
+            # Raggruppa i record per chiave primaria
+            records_by_key = {}
+            for duck_record in duck_records:
+                # Prepara i dati per PostgreSQL
+                record_dict = await self._prepare_entity_for_pg(
+                    duck_record, "testi", column_types
+                )
+
+                # Crea una nuova istanza dell'entità
+                record = entity_type(**record_dict)
+
+                # Crea una chiave composita basata sui valori delle chiavi primarie
+                pk_values = tuple(getattr(record, pk) for pk in duck_repo.primary_keys)
+
+                # Aggiungi il record alla lista per questa chiave primaria
+                if pk_values not in records_by_key:
+                    records_by_key[pk_values] = []
+                records_by_key[pk_values].append(record)
+
+            # Log del numero di gruppi di record trovati
+            logger.info(
+                "records_grouped_by_primary_key",
+                group_count=len(records_by_key),
+                total_records=len(duck_records),
+            )
+
+            # Per ogni gruppo di chiavi primarie, processa i record
+            total_deleted = 0
+            total_inserted = 0
+            total_transformed = 0
+
+            for pk_values, records in records_by_key.items():
+                try:
+                    # Converti la tupla in un dizionario di chiavi primarie
+                    pk_dict = {
+                        pk: val for pk, val in zip(duck_repo.primary_keys, pk_values)
+                    }
+
+                    # 1. Verifica se esistono record con questa chiave primaria in PostgreSQL
+                    check_parts = []
+                    check_params = {}
+
+                    for i, (pk, value) in enumerate(pk_dict.items()):
+                        param_name = f"c{i}"
+                        if value is None:
+                            check_parts.append(f'"{pk}" IS NULL')
+                        else:
+                            check_parts.append(f'"{pk}" = :{param_name}')
+                            check_params[param_name] = value
+
+                    check_clause = " AND ".join(check_parts)
+                    check_query = (
+                        f"SELECT COUNT(*) FROM {self.schema}.testi WHERE {check_clause}"
+                    )
+
+                    # Esegui la query di verifica
+                    count_result = self.pg_dal.connection.execute(
+                        text(check_query), check_params
+                    ).scalar()
+
+                    # 2. Se esistono record, elimina quelli esistenti
+                    if count_result > 0:
+                        # Prepara la query DELETE con gli stessi parametri
+                        delete_query = (
+                            f"DELETE FROM {self.schema}.testi WHERE {check_clause}"
+                        )
+
+                        # Esegui la query DELETE
+                        result = self.pg_dal.connection.execute(
+                            text(delete_query), check_params
+                        )
+                        deleted_count = result.rowcount
+                        total_deleted += deleted_count
+
+                        logger.info(
+                            "deleted_records_for_key", pk=pk_dict, count=deleted_count
+                        )
+                    else:
+                        logger.info("no_existing_records_for_key", pk=pk_dict)
+
+                    # 3. Inserisci tutti i nuovi record
+                    inserted_count = 0
+                    for record in records:
+                        try:
+                            # Se il modello ha un campo 'id', modifica il record per usare la sequence
+                            if hasattr(record, "id"):
+                                # Ottieni i dati del record come dizionario
+                                record_dict = record.model_dump()
+
+                                # Imposta l'id per usare la sequence
+                                record_dict["id"] = text(
+                                    "nextval('ctmp.testi_id_seq'::regclass)"
+                                )
+
+                                # Crea una nuova istanza dell'entità con l'id aggiornato
+                                updated_record = entity_type(**record_dict)
+
+                                # Inserisci il record con l'id generato dalla sequence
+                                await pg_repo.insert(updated_record)
+                            else:
+                                # Se il record non ha un campo id, usa l'inserimento normale
+                                await pg_repo.insert(record)
+
+                            inserted_count += 1
+                            total_inserted += 1
+                            self.stats["inserted"] += 1
+                        except Exception as insert_error:
+                            self.stats["errors"] += 1
+                            logger.error(
+                                "error_inserting_record",
+                                error=str(insert_error),
+                                pk=pk_dict,
+                                error_type=type(insert_error).__name__,
+                            )
+
+                    logger.info(
+                        "inserted_records_for_key",
+                        pk=pk_dict,
+                        count=inserted_count,
+                        attempted=len(records),
+                    )
+
+                    # 4. Trasforma le geometrie da SRID 3004 a SRID 6708 direttamente in PostgreSQL
+                    if inserted_count > 0:
+                        # Le colonne geometriche da trasformare
+                        geom_columns = ["geom"]
+                        transformed_columns = 0
+
+                        for geom_column in geom_columns:
+                            # Verifica se la colonna esiste prima di provare l'aggiornamento
+                            try:
+                                # Costruisci la query di trasformazione
+                                transform_query = f"""
+                                UPDATE {self.schema}.testi 
+                                SET "{geom_column}" = ST_Transform(ST_SetSRID("{geom_column}", 3004), 6708)
+                                WHERE {check_clause} AND "{geom_column}" IS NOT NULL
+                                """
+
+                                # Esegui la query di trasformazione
+                                transform_result = self.pg_dal.connection.execute(
+                                    text(transform_query), check_params
+                                )
+                                transformed_count = transform_result.rowcount
+
+                                if transformed_count > 0:
+                                    transformed_columns += 1
+                                    total_transformed += transformed_count
+                                    logger.info(
+                                        f"transformed_{geom_column}_from_3004_to_6708",
+                                        pk=pk_dict,
+                                        count=transformed_count,
+                                    )
+
+                                    # Verifica SRID dopo la trasformazione
+                                    verify_query = f"""
+                                    SELECT ST_SRID("{geom_column}") 
+                                    FROM {self.schema}.testi 
+                                    WHERE {check_clause} AND "{geom_column}" IS NOT NULL 
+                                    LIMIT 1
+                                    """
+                                    try:
+                                        srid_result = self.pg_dal.connection.execute(
+                                            text(verify_query), check_params
+                                        ).scalar()
+                                        logger.info(
+                                            f"verified_srid_after_transform_{geom_column}",
+                                            pk=pk_dict,
+                                            srid=srid_result,
+                                        )
+                                    except Exception as verify_error:
+                                        logger.warning(
+                                            f"could_not_verify_srid_{geom_column}",
+                                            pk=pk_dict,
+                                            error=str(verify_error),
+                                        )
+                            except Exception as transform_error:
+                                logger.warning(
+                                    f"error_transforming_{geom_column}",
+                                    pk=pk_dict,
+                                    error=str(transform_error),
+                                    error_type=type(transform_error).__name__,
+                                )
+
+                        logger.info(
+                            "geometry_transformation_completed",
+                            pk=pk_dict,
+                            transformed_columns=transformed_columns,
+                        )
+
+                except Exception as e:
+                    self.stats["errors"] += 1
+                    logger.error(
+                        "error_processing_key",
+                        pk=pk_dict if "pk_dict" in locals() else pk_values,
+                        error_type=type(e).__name__,
+                        error=str(e),
+                    )
+
+            logger.info(
+                "sync_testi_completed",
+                total_distinct_keys=len(records_by_key),
+                total_deleted=total_deleted,
+                total_inserted=total_inserted,
+                total_transformed=total_transformed,
+                errors=self.stats["errors"],
+            )
+
+            return
+
+        except Exception as e:
+            # Log dettagliato dell'errore
+            logger.error(
+                "error_in_sync_testi",
+                error_type=type(e).__name__,
+                error_message=str(e),
+            )
+            raise e
+
     async def _sync_related_table(self, table_name: str, entity_type: Type[BaseModel]):
         """
         Sincronizza una tabella correlata.
@@ -2038,6 +3152,284 @@ class DatabaseSynchronizer:
             logger.error(
                 "error_in_sync_related_table",
                 table=table_name,
+                error_type=type(e).__name__,
+                error_message=str(e),
+            )
+            raise e
+
+    async def _sync_simboli_with_delete(self, entity_type: Type[BaseModel]):
+        """
+        Sincronizza la tabella simboli con strategia delete-then-insert.
+
+        Utilizza un approccio che prima elimina tutti i record esistenti per una specifica
+        chiave primaria, quindi inserisce i nuovi. Se non esistono record per una chiave,
+        procede direttamente con l'inserimento. Dopo l'inserimento, trasforma le geometrie
+        dal SRID 3004 al SRID 6708 direttamente in PostgreSQL.
+        """
+        logger = self.logger.bind(action="sync_simboli_with_delete")
+        try:
+            # Ottieni i repository
+            duck_repo = self._get_duck_repository(entity_type, "simboli")
+            pg_repo = self._get_pg_repository(entity_type, "simboli")
+
+            # Ottieni i nomi e i tipi delle colonne
+            schema, table = duck_repo.table_name.split(".")
+            cols_query = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = '{schema}' AND table_name = '{table}'"
+            columns_info = duck_repo.connection.execute(cols_query).fetchall()
+
+            # Estrai solo i nomi delle colonne
+            column_names = [col[0] for col in columns_info]
+
+            # Identifica le colonne geometriche
+            geometry_columns = [
+                col[0] for col in columns_info if col[1].lower() == "geometry"
+            ]
+
+            # Costruisci la query SELECT con conversione solo in WKT (senza trasformazione SRID)
+            select_parts = []
+            for col_name, data_type in columns_info:
+                if data_type.lower() == "geometry":
+                    # Converte le geometrie in WKT senza cambiare SRID
+                    select_parts.append(f'ST_AsText("{col_name}") as "{col_name}"')
+                else:
+                    select_parts.append(f'"{col_name}"')
+
+            # Esegui la query per ottenere tutti i record con geometrie in formato WKT
+            query = f"SELECT {', '.join(select_parts)} FROM {duck_repo.table_name}"
+            results = duck_repo.connection.execute(query).fetchall()
+
+            # Crea i record con le geometrie già in formato WKT
+            duck_records = []
+            for row in results:
+                record_dict = dict(zip(column_names, row))
+                # Ora i valori di geometria sono in formato WKT (testo) invece di WKB (binario)
+                duck_records.append(entity_type(**record_dict))
+
+            # Ottieni i tipi di colonna da PostgreSQL (necessario per la conversione)
+            column_types_query = f"""
+            SELECT column_name, data_type 
+            FROM information_schema.columns
+            WHERE table_schema = '{self.schema}' AND table_name = 'simboli'
+            ORDER BY ordinal_position;
+            """
+            column_types = {
+                row[0]: row[1]
+                for row in self.pg_dal.connection.execute(
+                    text(column_types_query)
+                ).fetchall()
+            }
+
+            # Raggruppa i record per chiave primaria
+            records_by_key = {}
+            for duck_record in duck_records:
+                # Prepara i dati per PostgreSQL
+                record_dict = await self._prepare_entity_for_pg(
+                    duck_record, "simboli", column_types
+                )
+
+                # Crea una nuova istanza dell'entità
+                record = entity_type(**record_dict)
+
+                # Crea una chiave composita basata sui valori delle chiavi primarie
+                pk_values = tuple(getattr(record, pk) for pk in duck_repo.primary_keys)
+
+                # Aggiungi il record alla lista per questa chiave primaria
+                if pk_values not in records_by_key:
+                    records_by_key[pk_values] = []
+                records_by_key[pk_values].append(record)
+
+            # Log del numero di gruppi di record trovati
+            logger.info(
+                "records_grouped_by_primary_key",
+                group_count=len(records_by_key),
+                total_records=len(duck_records),
+            )
+
+            # Per ogni gruppo di chiavi primarie, processa i record
+            total_deleted = 0
+            total_inserted = 0
+            total_transformed = 0
+
+            for pk_values, records in records_by_key.items():
+                try:
+                    # Converti la tupla in un dizionario di chiavi primarie
+                    pk_dict = {
+                        pk: val for pk, val in zip(duck_repo.primary_keys, pk_values)
+                    }
+
+                    # 1. Verifica se esistono record con questa chiave primaria in PostgreSQL
+                    check_parts = []
+                    check_params = {}
+
+                    for i, (pk, value) in enumerate(pk_dict.items()):
+                        param_name = f"c{i}"
+                        if value is None:
+                            check_parts.append(f'"{pk}" IS NULL')
+                        else:
+                            check_parts.append(f'"{pk}" = :{param_name}')
+                            check_params[param_name] = value
+
+                    check_clause = " AND ".join(check_parts)
+                    check_query = f"SELECT COUNT(*) FROM {self.schema}.simboli WHERE {check_clause}"
+
+                    # Esegui la query di verifica
+                    count_result = self.pg_dal.connection.execute(
+                        text(check_query), check_params
+                    ).scalar()
+
+                    # 2. Se esistono record, elimina quelli esistenti
+                    if count_result > 0:
+                        # Prepara la query DELETE con gli stessi parametri
+                        delete_query = (
+                            f"DELETE FROM {self.schema}.simboli WHERE {check_clause}"
+                        )
+
+                        # Esegui la query DELETE
+                        result = self.pg_dal.connection.execute(
+                            text(delete_query), check_params
+                        )
+                        deleted_count = result.rowcount
+                        total_deleted += deleted_count
+
+                        logger.info(
+                            "deleted_records_for_key", pk=pk_dict, count=deleted_count
+                        )
+                    else:
+                        logger.info("no_existing_records_for_key", pk=pk_dict)
+
+                    # 3. Inserisci tutti i nuovi record
+                    inserted_count = 0
+                    for record in records:
+                        try:
+                            # Se il modello ha un campo 'id', modifica il record per usare la sequence
+                            if hasattr(record, "id"):
+                                # Ottieni i dati del record come dizionario
+                                record_dict = record.model_dump()
+
+                                # Imposta l'id per usare la sequence
+                                record_dict["id"] = text(
+                                    "nextval('ctmp.simboli_id_seq'::regclass)"
+                                )
+
+                                # Crea una nuova istanza dell'entità con l'id aggiornato
+                                updated_record = entity_type(**record_dict)
+
+                                # Inserisci il record con l'id generato dalla sequence
+                                await pg_repo.insert(updated_record)
+                            else:
+                                # Se il record non ha un campo id, usa l'inserimento normale
+                                await pg_repo.insert(record)
+
+                            inserted_count += 1
+                            total_inserted += 1
+                            self.stats["inserted"] += 1
+                        except Exception as insert_error:
+                            self.stats["errors"] += 1
+                            logger.error(
+                                "error_inserting_record",
+                                error=str(insert_error),
+                                pk=pk_dict,
+                                error_type=type(insert_error).__name__,
+                            )
+
+                    logger.info(
+                        "inserted_records_for_key",
+                        pk=pk_dict,
+                        count=inserted_count,
+                        attempted=len(records),
+                    )
+
+                    # 4. Trasforma le geometrie da SRID 3004 a SRID 6708 direttamente in PostgreSQL
+                    if inserted_count > 0:
+                        # Le colonne geometriche da trasformare
+                        geom_columns = ["geom"]
+                        transformed_columns = 0
+
+                        for geom_column in geom_columns:
+                            # Verifica se la colonna esiste prima di provare l'aggiornamento
+                            try:
+                                # Costruisci la query di trasformazione
+                                transform_query = f"""
+                                UPDATE {self.schema}.simboli 
+                                SET "{geom_column}" = ST_Transform(ST_SetSRID("{geom_column}", 3004), 6708)
+                                WHERE {check_clause} AND "{geom_column}" IS NOT NULL
+                                """
+
+                                # Esegui la query di trasformazione
+                                transform_result = self.pg_dal.connection.execute(
+                                    text(transform_query), check_params
+                                )
+                                transformed_count = transform_result.rowcount
+
+                                if transformed_count > 0:
+                                    transformed_columns += 1
+                                    total_transformed += transformed_count
+                                    logger.info(
+                                        f"transformed_{geom_column}_from_3004_to_6708",
+                                        pk=pk_dict,
+                                        count=transformed_count,
+                                    )
+
+                                    # Verifica SRID dopo la trasformazione
+                                    verify_query = f"""
+                                    SELECT ST_SRID("{geom_column}") 
+                                    FROM {self.schema}.simboli 
+                                    WHERE {check_clause} AND "{geom_column}" IS NOT NULL 
+                                    LIMIT 1
+                                    """
+                                    try:
+                                        srid_result = self.pg_dal.connection.execute(
+                                            text(verify_query), check_params
+                                        ).scalar()
+                                        logger.info(
+                                            f"verified_srid_after_transform_{geom_column}",
+                                            pk=pk_dict,
+                                            srid=srid_result,
+                                        )
+                                    except Exception as verify_error:
+                                        logger.warning(
+                                            f"could_not_verify_srid_{geom_column}",
+                                            pk=pk_dict,
+                                            error=str(verify_error),
+                                        )
+                            except Exception as transform_error:
+                                logger.warning(
+                                    f"error_transforming_{geom_column}",
+                                    pk=pk_dict,
+                                    error=str(transform_error),
+                                    error_type=type(transform_error).__name__,
+                                )
+
+                        logger.info(
+                            "geometry_transformation_completed",
+                            pk=pk_dict,
+                            transformed_columns=transformed_columns,
+                        )
+
+                except Exception as e:
+                    self.stats["errors"] += 1
+                    logger.error(
+                        "error_processing_key",
+                        pk=pk_dict if "pk_dict" in locals() else pk_values,
+                        error_type=type(e).__name__,
+                        error=str(e),
+                    )
+
+            logger.info(
+                "sync_simboli_completed",
+                total_distinct_keys=len(records_by_key),
+                total_deleted=total_deleted,
+                total_inserted=total_inserted,
+                total_transformed=total_transformed,
+                errors=self.stats["errors"],
+            )
+
+            return
+
+        except Exception as e:
+            # Log dettagliato dell'errore
+            logger.error(
+                "error_in_sync_simboli",
                 error_type=type(e).__name__,
                 error_message=str(e),
             )
@@ -2268,37 +3660,45 @@ class DatabaseSynchronizer:
                 has_update_fabbricati = False
                 logger.warning("update_fabbricati function not available")
 
-            # try:
-            #     from catasto.postgres.carto import update_acque
+            try:
+                from catasto.postgres.carto import update_quadri
 
-            #     has_update_acque = True
-            # except ImportError:
-            #     has_update_acque = False
-            #     logger.warning("update_acque function not available")
+                has_update_quadri = True
+            except ImportError:
+                has_update_quadri = False
+                logger.warning("update_quadri function not available")
 
-            # try:
-            #     from catasto.postgres.carto import update_strade
+            try:
+                from catasto.postgres.carto import update_acque
 
-            #     has_update_strade = True
-            # except ImportError:
-            #     has_update_strade = False
-            #     logger.warning("update_strade function not available")
+                has_update_acque = True
+            except ImportError:
+                has_update_acque = False
+                logger.warning("update_acque function not available")
 
-            # try:
-            #     from catasto.postgres.carto import update_testi
+            try:
+                from catasto.postgres.carto import update_strade
 
-            #     has_update_testi = True
-            # except ImportError:
-            #     has_update_testi = False
-            #     logger.warning("update_testi function not available")
+                has_update_strade = True
+            except ImportError:
+                has_update_strade = False
+                logger.warning("update_strade function not available")
 
-            # try:
-            #     from catasto.postgres.carto import update_simboli
+            try:
+                from catasto.postgres.carto import update_testi
 
-            #     has_update_simboli = True
-            # except ImportError:
-            #     has_update_simboli = False
-            #     logger.warning("update_simboli function not available")
+                has_update_testi = True
+            except ImportError:
+                has_update_testi = False
+                logger.warning("update_testi function not available")
+
+            try:
+                from catasto.postgres.carto import update_simboli
+
+                has_update_simboli = True
+            except ImportError:
+                has_update_simboli = False
+                logger.warning("update_simboli function not available")
 
             # Dizionario per mappare i nomi delle tabelle alle funzioni di aggiornamento
             update_functions = {}
@@ -2308,14 +3708,16 @@ class DatabaseSynchronizer:
                 update_functions["particelle"] = update_particelle
             if has_update_fabbricati and "fabbricati" in entity_types:
                 update_functions["fabbricati"] = update_fabbricati
-            # if has_update_acque and "acque" in entity_types:
-            #     update_functions["acque"] = update_acque
-            # if has_update_strade and "strade" in entity_types:
-            #     update_functions["strade"] = update_strade
-            # if has_update_testi and "testi" in entity_types:
-            #     update_functions["testi"] = update_testi
-            # if has_update_simboli and "simboli" in entity_types:
-            #     update_functions["simboli"] = update_simboli
+            if has_update_quadri and "quadri" in entity_types:
+                update_functions["quadri"] = update_quadri
+            if has_update_acque and "acque" in entity_types:
+                update_functions["acque"] = update_acque
+            if has_update_strade and "strade" in entity_types:
+                update_functions["strade"] = update_strade
+            if has_update_testi and "testi" in entity_types:
+                update_functions["testi"] = update_testi
+            if has_update_simboli and "simboli" in entity_types:
+                update_functions["simboli"] = update_simboli
 
             tables_to_sync = list(update_functions.keys())
             logger.info("syncing_ctmp_tables", tables=tables_to_sync)

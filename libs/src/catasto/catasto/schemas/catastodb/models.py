@@ -756,7 +756,7 @@ class Simboli(CatastoBaseModel):
     foglio: str | None
     allegato: str | None
     sviluppo: str | None
-    codice: str | None = ""
+    codice: int = 0
     angolo: int | None = 0
     esterno: int = 0
     geom: str
@@ -768,7 +768,8 @@ class Simboli(CatastoBaseModel):
             foglio=dati_simbolo.foglio,
             allegato=dati_simbolo.allegato,
             sviluppo=dati_simbolo.sviluppo,
-            codice=dati_simbolo.codice,
+            codice=safe_cast(dati_simbolo.codice, int, 0),
             angolo=safe_cast(dati_simbolo.angolo, int, 0),
+            esterno=safe_cast(dati_simbolo.esterno, int, 0),
             geom=f"{dati_simbolo.geometry}",
         )
