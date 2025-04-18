@@ -1628,6 +1628,21 @@ class DatabaseSynchronizer:
                 errors=self.stats["errors"],
             )
 
+            # Aggiorna la vista materializzata
+            try:
+                refresh_query = "REFRESH MATERIALIZED VIEW ctmp.particelle_gs_view"
+                self.pg_dal.connection.execute(text(refresh_query))
+                logger.info(
+                    "materialized_view_refreshed", view="ctmp.particelle_gs_view"
+                )
+            except Exception as view_error:
+                logger.error(
+                    "error_refreshing_materialized_view",
+                    view="ctmp.particelle_gs_view",
+                    error=str(view_error),
+                    error_type=type(view_error).__name__,
+                )
+
             return
 
         except Exception as e:
@@ -1905,6 +1920,21 @@ class DatabaseSynchronizer:
                 total_transformed=total_transformed,
                 errors=self.stats["errors"],
             )
+
+            # Aggiorna la vista materializzata
+            try:
+                refresh_query = "REFRESH MATERIALIZED VIEW ctmp.fabbricati_gs_view"
+                self.pg_dal.connection.execute(text(refresh_query))
+                logger.info(
+                    "materialized_view_refreshed", view="ctmp.fabbricati_gs_view"
+                )
+            except Exception as view_error:
+                logger.error(
+                    "error_refreshing_materialized_view",
+                    view="ctmp.fabbricati_gs_view",
+                    error=str(view_error),
+                    error_type=type(view_error).__name__,
+                )
 
             return
 
