@@ -128,11 +128,9 @@ class DatabaseSynchronizer:
                 ]
             elif entity_type in [
                 Acque,
-                Fabbricati,
                 Fogli,
                 Quadri,
                 Simboli,
-                Strade,
                 Testi,
             ]:
                 primary_keys = [
@@ -148,7 +146,9 @@ class DatabaseSynchronizer:
                     # tramite delete e nuovo insert di tutte le geometrie inviate.
                 ]
             elif entity_type in [
+                Fabbricati,
                 Particelle,
+                Strade,
             ]:
                 primary_keys = [
                     "comune",
