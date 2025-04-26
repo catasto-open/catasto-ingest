@@ -3,11 +3,12 @@ from pathlib import Path
 
 import duckdb
 import structlog
+from structlog.stdlib import BoundLogger
+
 from catasto.duckdb.repository import DuckDBRepository
 from catasto.parser import FileParserService
 from catasto.reader import LocalFileReaderService
 from catasto.schemas.catastodb.models import Ctfisica, Ctnonfis
-from structlog.stdlib import BoundLogger
 
 
 async def load_soggetti(
@@ -128,7 +129,6 @@ async def load_soggetti(
         reader = LocalFileReaderService(filepath=sog_filepath)
         parser = FileParserService(reader=reader)
         content = await parser.parse()
-        breakpoint()
         logger.debug(
             f"Parsing completato, numero di soggetti: {len(content.soggetti.soggetti)}"
         )
