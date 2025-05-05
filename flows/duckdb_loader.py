@@ -90,7 +90,7 @@ def load_cxf_file(
 
 
 @flow(name="CTCN loading", log_prints=True)
-def ctcn_flow(
+def ct2duckdb_flow(
     fab_files: list = None,
     ter_files: list = None,
     sog_files: list = None,

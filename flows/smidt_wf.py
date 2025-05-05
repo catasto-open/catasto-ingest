@@ -3,12 +3,13 @@ from prefect.blocks.system import JSON
 from smidt.client import FTPConfig
 from smidt.watcher import FTPMinioObserver
 
-from flows.duckdb_loader import ctcn_flow
+from flows.duckdb_loader import ct2duckdb_flow
 from flows.smidt_decrypt import process_smidt_file_flow
-from flows.smidt_loader import ctcn_sync_flow
+from flows.smidt_loader import ctcn_sync_flow, ctmp_sync_flow
 from flows.smidt_prepare import download_and_sort_flow
 
 smidt_block = JSON.load("smidt-settings")
+catastodb_block = JSON.load("catasto-settings")
 
 
 @task(name="copy monthly files", log_prints=True, tags="SMIDT")
@@ -69,19 +70,23 @@ if __name__ == "__main__":
         minio_endpoint=smidt_block.value["minio_host"],
         minio_access_key=smidt_block.value["minio_access_key"],
         minio_secret_key=smidt_block.value["minio_secret_key"],
-        minio_bucket=smidt_block.value["siscat_bucket"],
+        minio_bucket=smidt_block.value["catasto_bucket"],
         secure=False,
     )
-    ddb_file = ctcn_flow(
+    ddb_file = ct2duckdb_flow(
         fab_files=local_sorted_files["FAB"],
         ter_files=local_sorted_files["TER"],
         sog_files=local_sorted_files["SOG"],
         tit_files=local_sorted_files["TIT"],
         cxf_files=local_sorted_files["CXF"],
-        catasto_db="/tmp/catasto.duckdb",
+        catasto_db=catastodb_block.value["duckdb_conn_string"],
         empty_db=True,
     )
     ctcn_sync_flow(
         source_db=ddb_file,
-        target_db="postgresql://catasto:catasto@localhost:5433/catasto",
+        target_db=catastodb_block.value["pg_conn_string"],
+    )
+    ctmp_sync_flow(
+        source_db=ddb_file,
+        target_db=catastodb_block.value["pg_conn_string"],
     )

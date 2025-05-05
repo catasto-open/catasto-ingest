@@ -9,7 +9,6 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     net-tools \
     procps \
     unzip \
-    python3-poetry \
     vim \
     gdal-bin \
     libgdal-dev \
@@ -23,3 +22,8 @@ RUN mkdir -p /root/.duckdb/extensions/v1.2.2/linux_amd64_gcc4 && \
     gunzip postgres_scanner.duckdb_extension.gz && \
     gunzip spatial.duckdb_extension.gz && \
     mv postgres_scanner.duckdb_extension spatial.duckdb_extension /root/.duckdb/extensions/v1.2.2/linux_amd64_gcc4/
+# Install poetry
+RUN pip install poetry && \
+    git clone https://github.com/catasto-open/catasto-ingest.git && \
+    cd catasto-ingest && \
+    poetry add "gdal=3.6.2"
