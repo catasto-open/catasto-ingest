@@ -1,7 +1,11 @@
 from typing import Protocol
 
-from py_scdb import AsyncStore
 from schemas.census import Census, CensusTypeEnum
+
+
+class AsyncStore(Protocol):
+    async def set(self, key: str, value: str) -> "AsyncStore":
+        pass
 
 
 class DictionariesBuilder(Protocol):
