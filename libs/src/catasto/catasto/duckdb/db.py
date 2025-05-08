@@ -22,6 +22,8 @@ class DuckDBManager:
         """Stabilisce una connessione al database DuckDB."""
         if self.conn is None:
             self.conn = duckdb.connect(self.duckdb_path)
+            self.conn.install_extension("spatial")
+            self.conn.load_extension("spatial")
         return self.conn
 
     def close(self) -> None:

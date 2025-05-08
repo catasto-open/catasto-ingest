@@ -148,6 +148,12 @@ class DuckDBDirectDataAccessLayer(DataAccessLayer):
         ddl = re.sub(r"int8\b", "BIGINT", ddl, flags=re.IGNORECASE)
         ddl = re.sub(r"int4\b", "INTEGER", ddl, flags=re.IGNORECASE)
 
+        # Converti bigserial in BIGINT
+        ddl = re.sub(r"\bbigserial\b", "BIGINT", ddl, flags=re.IGNORECASE)
+
+        # Converti anche serial in INTEGER
+        ddl = re.sub(r"\bserial\b", "INTEGER", ddl, flags=re.IGNORECASE)
+
         # Aggiungi IF NOT EXISTS se non è già presente
         if "IF NOT EXISTS" not in ddl:
             ddl = re.sub(r"CREATE TABLE", "CREATE TABLE IF NOT EXISTS", ddl)
@@ -166,6 +172,8 @@ class DuckDBDirectDataAccessLayer(DataAccessLayer):
             "varchar": String,
             "INTEGER": Integer,
             "BIGINT": BigInteger,
+            "bigserial": BigInteger,
+            "serial": Integer,
             "int8": BigInteger,
             "int4": Integer,
         }

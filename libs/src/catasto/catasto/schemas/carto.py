@@ -2,11 +2,13 @@ from typing import Dict, List
 
 from pydantic import BaseModel, Field, field_validator
 
+from catasto.schemas.common import OptionalStr
+
 
 class CartoHeaderModel(BaseModel):
-    mappa: str | None = Field(None, alias="MAPPA")
-    nome_mappa: str | None = Field(None, alias="NOME MAPPA")
-    scala_originaria: str | None = Field(None, alias="SCALA ORIGINARIA")
+    mappa: OptionalStr = Field(None, alias="MAPPA")
+    nome_mappa: OptionalStr = Field(None, alias="NOME MAPPA")
+    scala_originaria: OptionalStr = Field(None, alias="SCALA ORIGINARIA")
     oggetti: Dict[str, str] = {}
 
     @field_validator("mappa")
@@ -30,13 +32,15 @@ class CartoObject(BaseModel):
 
 
 class LandSheet(BaseModel):
-    codice_foglio: str | None = Field(None, alias="CODICE_FOGLIO")
-    codice_comune: str | None = Field(None, alias="CODICE_COMUNE")
-    codice_sezione_censuaria: str | None = Field(None, alias="CODICE SEZIONE CENSUARIA")
-    codice_numero_foglio: str | None = Field(None, alias="CODICE NUMERO FOGLIO")
-    numero_foglio: str | None = Field(None, alias="NUMERO FOGLIO")
-    codice_allegato: str | None = Field(None, alias="CODICE ALLEGATO")
-    codice_sviluppo: str | None = Field(None, alias="CODICE SVILUPPO")
+    codice_foglio: OptionalStr = Field(None, alias="CODICE_FOGLIO")
+    codice_comune: OptionalStr = Field(None, alias="CODICE_COMUNE")
+    codice_sezione_censuaria: OptionalStr = Field(
+        None, alias="CODICE SEZIONE CENSUARIA"
+    )
+    codice_numero_foglio: OptionalStr = Field(None, alias="CODICE NUMERO FOGLIO")
+    numero_foglio: OptionalStr = Field(None, alias="NUMERO FOGLIO")
+    codice_allegato: OptionalStr = Field(None, alias="CODICE ALLEGATO")
+    codice_sviluppo: OptionalStr = Field(None, alias="CODICE SVILUPPO")
     header: CartoHeaderModel | None = None
     oggetti: CartoObject | None = None
 
@@ -76,9 +80,54 @@ class LandSheet(BaseModel):
 
 
 class CartoObjectItem(BaseModel):
-    codice_identificativo: str = Field(None, alias="CODICE_IDENTIFICATIVO")
-    tipo: str | None = None
+    comune: str
+    sezione: str
+    foglio: str
+    allegato: OptionalStr = Field(None)
+    sviluppo: OptionalStr = Field(None)
+
+    model_config = {"populate_by_name": True}
+
+
+class CartoBordo(CartoObjectItem):
+    codice_identificativo: OptionalStr = Field(None, alias="CODICE_IDENTIFICATIVO")
+    tipo: OptionalStr = Field(None, alias="TIPO")
     vertici: List = Field(default_factory=list, alias="VERTICI")
     tabisole: List = Field(default_factory=list, alias="TABISOLE")
-    numeroisole: str | None = Field(None, alias="NUMEROISOLE")
-    numerovertici: str | None = Field(None, alias="NUMEROVERTICI")
+    numeroisole: OptionalStr = Field(None, alias="NUMEROISOLE")
+    numerovertici: OptionalStr = Field(None, alias="NUMEROVERTICI")
+    dimensione: OptionalStr = Field(None, alias="DIMENSIONE")
+    angolo: OptionalStr = Field(None, alias="ANGOLO")
+    posizione_x: OptionalStr = Field(None, alias="POSIZIONEX")
+    posizione_y: OptionalStr = Field(None, alias="POSIZIONEY")
+    puntointerno_x: OptionalStr = Field(None, alias="PUNTOINTERNOX")
+    puntointerno_y: OptionalStr = Field(None, alias="PUNTOINTERNOY")
+    t_pt_ins: OptionalStr = Field(None)
+    t_ln_anc: OptionalStr = Field(None)
+    geometry: OptionalStr = Field(None)
+
+    # @computed_field
+    # @property
+    # def _id(self) -> int:
+    #     return int(self.codice_identificativo)
+
+    model_config = {"arbitrary_types_allowed": True, "populate_by_name": True}
+
+
+class CartoTesto(CartoObjectItem):
+    testo: OptionalStr = Field(None, alias="TESTO")
+    esterno: bool = Field(..., alias="ESTERNO")
+    dimensione: OptionalStr = Field(None, alias="DIMENSIONE")
+    angolo: OptionalStr = Field(None, alias="ANGOLO")
+    posizione_x: OptionalStr = Field(None, alias="POSIZIONEX")
+    posizione_y: OptionalStr = Field(None, alias="POSIZIONEY")
+    geometry: OptionalStr = Field(None)
+
+
+class CartoSimbolo(CartoObjectItem):
+    codice: OptionalStr = Field(None, alias="CODICE SIMBOLO")
+    esterno: bool = Field(..., alias="ESTERNO")
+    angolo: OptionalStr = Field(None, alias="ANGOLO")
+    posizione_x: OptionalStr = Field(None, alias="POSIZIONEX")
+    posizione_y: OptionalStr = Field(None, alias="POSIZIONEY")
+    geometry: OptionalStr = Field(None)

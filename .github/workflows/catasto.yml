@@ -57,8 +57,7 @@ jobs:
                     export C_INCLUDE_PATH=/usr/include/gdal
                     
                     # Installa le dipendenze con Poetry
-                    poetry remove GDAL
-                    poetry add "GDAL>=3.6.2"
+                    rm poetry.lock
                     poetry install --no-interaction --no-root --no-cache
             -   name: Run tests
                 run: |

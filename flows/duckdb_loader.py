@@ -2,6 +2,7 @@ import asyncio
 from pathlib import Path
 
 from catasto.duckdb.building import load_fabbricati
+from catasto.duckdb.carto import load_carto
 from catasto.duckdb.entitlement import load_titolarita
 from catasto.duckdb.land import load_terreni
 from catasto.duckdb.subject import load_soggetti
@@ -72,12 +73,29 @@ def load_tit_file(
     return db_path
 
 
+@task(name="Load CXF file to CTCN", log_prints=True, tags="CTMP")
+def load_cxf_file(
+    cxf_filepath: str,
+    duckdb_filepath: str,
+    clean_tables: bool,
+):
+    db_path = asyncio.run(
+        load_carto(
+            cxf_filepath=cxf_filepath,
+            duckdb_filepath=duckdb_filepath,
+            clean_tables=clean_tables,
+        )
+    )
+    return db_path
+
+
 @flow(name="CTCN loading", log_prints=True)
-def ctcn_flow(
+def ct2duckdb_flow(
     fab_files: list = None,
     ter_files: list = None,
     sog_files: list = None,
     tit_files: list = None,
+    cxf_files: list = None,
     catasto_db: str = "/tmp/catasto.duckdb",
     empty_db: bool = False,
 ):
@@ -139,6 +157,20 @@ def ctcn_flow(
             db = Path(
                 load_tit_file(
                     tit_filepath=tit_file,
+                    duckdb_filepath=str(db),
+                    clean_tables=clean_tables,
+                )
+            )
+    if cxf_files:
+        for cxf_file in cxf_files:
+            logger.info(f"Loading CXF file: {cxf_file}")
+            if db.exists():
+                clean_tables = False
+            else:
+                clean_tables = True
+            db = Path(
+                load_cxf_file(
+                    cxf_filepath=cxf_file,
                     duckdb_filepath=str(db),
                     clean_tables=clean_tables,
                 )

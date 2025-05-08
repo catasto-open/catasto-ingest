@@ -464,7 +464,7 @@ Installing the current project: catasto-ingest (0.1.0)
 - The third step is to activate the virtual environment:
 
 !!! Warning
-    If you are running a `poetry` version above `2.0` then `poetry shell` is no longer available and a virtual environment is already activated and might be verified with the command `poetry env list`.
+    If you are running a `poetry` version above `2.0` then `poetry shell` is no longer available and a virtual environment might be activated with the command `eval $(poetry env activate)`.
 
 Optionally with poetry `<2.0.0`:
 
@@ -492,8 +492,8 @@ You can start the `default` Work Pool with the following command:
 
 <!-- termynal -->
 ```shell
-root@44e5f45ec73e:~/catasto# poetry run prefect worker start --pool "default"
-Discovered type 'process' for work pool 'default'.
+root@44e5f45ec73e:~/catasto# poetry run prefect worker start --pool "catasto-pool"
+Discovered type 'process' for work pool 'catasto-pool'.
 Worker 'ProcessWorker 26800af3-904c-4a08-802a-c23f8c7e0405' started!
 ```
 
@@ -534,7 +534,7 @@ if __name__ == "__main__":
 
 As per the warning in the previous section we have to configure the Prefect client CLI in order to communicate with the API endpoints which are available docker network of the composition.
 
-The composition already provides a `cli` service to mount your local flows to the container and execute the deployment script . It's just a command away from the container execution of a bash shell where you can run the deployment script. Use the above commands in the previous section to go into the container.
+The composition already provides a `cli` service to mount your local flows to the container and execute the deployment script. It's just a command away from the container execution of a bash shell where you can run the deployment script. Use the above commands in the previous section to go into the container.
 
 For the `demo.py` flow we have already created a deployment script `flows/deployments/demo_deployment.py` in python so you have to just execute it:
 
@@ -577,9 +577,9 @@ Successfully created/updated all deployments!
 │ prefect flow/Prefect flow deployment │ applied │         │
 └──────────────────────────────────────┴─────────┴─────────┘
 
-To execute flow runs from this deployment, start a worker in a separate terminal that pulls work from the 'default' work pool:
+To execute flow runs from this deployment, start a worker in a separate terminal that pulls work from the 'catasto-pool' work pool:
 
-        $ prefect worker start --pool 'default'
+        $ prefect worker start --pool 'catasto-pool'
 
 To schedule a run for this deployment, use the following command:
 
@@ -629,8 +629,8 @@ Also, the worker's Work Pool console in the shell should be emitting the followi
 
 <!-- termynal -->
 ```shell
-root@44e5f45ec73e:~/catasto# poetry run prefect worker start --pool "default"
-Discovered type 'process' for work pool 'default'.
+root@44e5f45ec73e:~/catasto# poetry run prefect worker start --pool "catasto-pool"
+Discovered type 'process' for work pool 'catasto-pool'.
 Worker 'ProcessWorker 26800af3-904c-4a08-802a-c23f8c7e0405' started!
 
 15:14:39.811 | INFO    | prefect.flow_runs.worker - Worker 'ProcessWorker 26800af3-904c-4a08-802a-c23f8c7e0405' submitting flow run '2e229f62-dad0-4bdd-9c60-d0e2b1e53f4b'

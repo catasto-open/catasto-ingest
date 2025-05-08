@@ -67,17 +67,54 @@ class DuckDBRepository(Generic[T]):
         records = [entity.model_dump() for entity in entities]
 
         # Definisci la funzione di inserimento che verrà eseguita nel thread
+        # Nella classe DuckDBRepository, metodo insert_many
         def do_insert():
             count = 0
             for record in records:
                 columns = ", ".join([f'"{col}"' for col in record.keys()])
-                placeholders = ", ".join(["?" for _ in record])
 
-                query = (
-                    f"INSERT INTO {self.table_name} ({columns}) VALUES ({placeholders})"
-                )
-                self.connection.execute(query, list(record.values()))
-                count += 1
+                # Costruisci i placeholder con trattamento speciale per le colonne geometry
+                placeholders = []
+                values = []
+
+                for col, val in record.items():
+                    if col.lower() == "geom" and val is not None:
+                        # Se è una colonna di tipo geometry, usa ST_GeomFromText
+                        placeholders.append("ST_GeomFromText(?)")
+                    elif col.lower() in ["t_pt_ins", "t_ln_anc"] and val is not None:
+                        # Anche per altre colonne geometry
+                        placeholders.append("ST_GeomFromText(?)")
+                    else:
+                        placeholders.append("?")
+
+                    values.append(val)
+
+                placeholders_str = ", ".join(placeholders)
+
+                query = f"INSERT INTO {self.table_name} ({columns}) VALUES ({placeholders_str})"
+
+                # Debug: stampa la query e i primi 100 caratteri di ogni valore
+                # print(f"Query: {query}")
+                # print(
+                #     f"Values: {[str(v)[:100] + '...' if isinstance(v, str) and len(str(v)) > 100 else v for v in values]}"
+                # )
+
+                try:
+                    self.connection.execute(query, values)
+                    count += 1
+                except Exception as e:
+                    print(f"Errore nell'inserimento del record: {e}")
+                    # Stampa dettagli aggiuntivi per facilitare il debug
+                    for col, val in record.items():
+                        if (
+                            col.lower() in ["geom", "t_pt_ins", "t_ln_anc"]
+                            and val is not None
+                        ):
+                            print(
+                                f"Colonna: {col}, Valore WKT (primi 100 caratteri): {str(val)[:100]}"
+                            )
+                    continue
+
             return count
 
         # Esegui la funzione nel thread e attendi il risultato

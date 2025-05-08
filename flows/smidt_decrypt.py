@@ -120,6 +120,8 @@ def extract_private_key(p12_path: Path, p12_password: str) -> Path:
     """
 
     container.run()
+    if not key_path.exists():
+        raise Exception("Error while extracting private key from P12 file")
     return key_path
 
 
