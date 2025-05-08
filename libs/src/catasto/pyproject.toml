@@ -1,0 +1,31 @@
+[tool.poetry]
+name = "catasto"
+version = "0.21.0"
+description = ""
+authors = ["Francesco Bartoli <francesco.bartoli@geobeyond.it>"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pydantic = "^2.0"
+aiofiles = "^22.1.0"
+s3fs = "^2023.12.2"
+# comment waiting for support of pydantic v2
+# catasto-db = {git = "https://github.com/catasto-open/catasto-db.git", branch = "develop"}
+miniopy-async = "^1.10"
+duckdb = "^1.2.1"
+gdal = "^3.6.2"
+structlog = "^25.2.0"
+psycopg2 = "^2.9.10"
+pyproj = "^3.7.1"
+
+[tool.poetry.group.dev.dependencies]
+ipython = "^8.6.0"
+pytest = "^7.2.0"
+pytest-asyncio = "^0.20.1"
+prefect = {extras = ["aws","docker"], version = "<3.0"}
+faker = "^36.1.1"
+polyfactory = "^2.19.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

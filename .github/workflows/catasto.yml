@@ -1,0 +1,64 @@
+name: Catasto Tests
+on:
+    push:
+        branches: [ main, develop ]
+        paths:
+        - 'libs/src/catasto/**'
+    pull_request:
+        branches: [ main, develop, feature/** ]
+        paths:
+        - 'libs/src/catasto/**'
+    workflow_dispatch:  # Per eseguire manualmente il workflow
+jobs:
+    test:
+        runs-on: ubuntu-latest
+        
+        defaults:
+            run:
+                working-directory: libs/src/catasto
+        steps:
+            -   name: Checkout repository
+                uses: actions/checkout@v3
+            -   name: Set up Python
+                uses: actions/setup-python@v4
+                with:
+                    python-version: '3.10'
+                    cache: 'pip'
+            -   name: Install system dependencies for GDAL
+                run: |
+                    # Aggiungi il repository UbuntuGIS che contiene versioni più recenti di GDAL
+                    sudo add-apt-repository ppa:ubuntugis/ubuntugis-unstable
+                    sudo apt-get update
+                    
+                    # Installa GDAL 3.10.x
+                    sudo apt-get install -y gdal-bin libgdal-dev
+                    
+                    # Verifica la versione di GDAL installata
+                    gdal-config --version
+                    
+                    # Configura le variabili di ambiente per il build
+                    export CPLUS_INCLUDE_PATH=/usr/include/gdal
+                    export C_INCLUDE_PATH=/usr/include/gdal
+            -   name: Install Poetry
+                uses: snok/install-poetry@v1
+                with:
+                    version: 1.5.1
+                    virtualenvs-create: true
+                    virtualenvs-in-project: true
+            -   name: Install dependencies
+                run: |
+                    # Ottieni la versione GDAL installata per configurare correttamente il pacchetto Python
+                    GDAL_VERSION=$(gdal-config --version)
+                    echo "GDAL version: $GDAL_VERSION"
+                    
+                    # Configura le variabili di ambiente per il build di GDAL
+                    export GDAL_CONFIG=/usr/bin/gdal-config
+                    export CPLUS_INCLUDE_PATH=/usr/include/gdal
+                    export C_INCLUDE_PATH=/usr/include/gdal
+                    
+                    # Installa le dipendenze con Poetry
+                    rm poetry.lock
+                    poetry install --no-interaction --no-root --no-cache
+            -   name: Run tests
+                run: |
+                    poetry run pytest -vv tests/

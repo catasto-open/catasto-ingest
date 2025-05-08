@@ -1,0 +1,67 @@
+###
+### A complete description of a Prefect Deployment for flow 'prefect flow'
+###
+name: prefect flow
+description: null
+version: '2'
+# The work queue that will handle this deployment's runs
+work_queue_name: default
+work_pool_name: default-agent-pool
+tags: []
+parameters: {}
+schedule: null
+is_schedule_active: true
+infra_overrides: {}
+
+###
+### DO NOT EDIT BELOW THIS LINE
+###
+flow_name: prefect flow
+manifest_path: null
+infrastructure:
+  type: process
+  env: {}
+  labels: {}
+  name: null
+  command: null
+  stream_output: true
+  working_dir: null
+  _block_document_id: 2b866e0b-9ee5-4907-bccd-4f35269ab55b
+  _block_document_name: anonymous-fc9b1229-d09d-4b76-9d43-3dc8c877ec31
+  _is_anonymous: true
+  block_type_slug: process
+  _block_type_slug: process
+storage:
+  bucket_name: prefect-flows
+  credentials:
+    minio_root_user: minioadmin
+    minio_root_password: '**********'
+    region_name: null
+    aws_client_parameters:
+      api_version: null
+      use_ssl: true
+      verify: true
+      verify_cert_path: null
+      endpoint_url: http://minio:9000
+      config: null
+    _block_document_id: b4501fb2-b4ac-4934-8d06-0c8a502d5f0a
+    _block_document_name: minio-admin
+    _is_anonymous: false
+    block_type_slug: minio-credentials
+  bucket_folder: ''
+  _block_document_id: 1136549c-4b1a-43c4-a9bd-8c7ef75b5ae9
+  _block_document_name: prefect-storage
+  _is_anonymous: false
+  block_type_slug: s3-bucket
+  _block_type_slug: s3-bucket
+path: ''
+entrypoint: demo.py:prefect_flow
+parameter_openapi_schema:
+  title: Parameters
+  type: object
+  properties: {}
+  required: null
+  definitions: null
+timestamp: '2024-01-21T10:30:53.071442+00:00'
+triggers: []
+enforce_parameter_schema: null

@@ -1,0 +1,31 @@
+FROM prefecthq/prefect:2.20.17-python3.10
+
+# Install security updates and system dependencies, then clean up
+RUN export DEBIAN_FRONTEND=noninteractive && \
+    apt-get update && \
+    apt-get --yes upgrade && \
+    apt-get install --yes --no-install-recommends \
+    curl \
+    git \
+    net-tools \
+    procps \
+    unzip \
+    vim \
+    gdal-bin \
+    libgdal-dev \
+    python3-gdal && \
+    apt-get --yes clean && \
+    rm -rf /var/lib/apt/lists/*
+# Install duckdb dependencies
+RUN mkdir -p /root/.duckdb/extensions/v1.2.2/linux_amd64_gcc4 && \
+    curl -O http://extensions.duckdb.org/v1.2.2/linux_amd64_gcc4/postgres_scanner.duckdb_extension.gz && \
+    curl -O http://extensions.duckdb.org/v1.2.2/linux_amd64_gcc4/spatial.duckdb_extension.gz && \
+    gunzip postgres_scanner.duckdb_extension.gz && \
+    gunzip spatial.duckdb_extension.gz && \
+    mv postgres_scanner.duckdb_extension spatial.duckdb_extension /root/.duckdb/extensions/v1.2.2/linux_amd64_gcc4/
+# Install poetry
+RUN pip install poetry && \
+    git clone https://github.com/catasto-open/catasto-ingest.git && \
+    cd catasto-ingest && \
+    poetry add "gdal=3.6.2" && \
+    poetry install
