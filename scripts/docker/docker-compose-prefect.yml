@@ -2,7 +2,7 @@
 
 services:
   prefect:
-    image: prefecthq/prefect:2.20.17-python3.10
+    image: prefecthq/prefect:2.20.20-python3.10
     restart: always
     volumes:
       - prefect:/root/.prefect
@@ -32,7 +32,7 @@ services:
     profiles: ["server"]
 
   prefect_work_queue_catasto:
-    image: prefecthq/prefect:2.20.17-python3.10
+    image: prefecthq/prefect:2.20.20-python3.10
     entrypoint: ["/opt/prefect/entrypoint.sh", "prefect", "work-queue", "create", "catasto-queue"]
     environment:
       - PREFECT_API_URL=http://prefect:4200/api
@@ -46,7 +46,7 @@ services:
     profiles: ["queue"]
 
   prefect_work_pool_catasto:
-    image: prefecthq/prefect:2.20.17-python3.10
+    image: prefecthq/prefect:2.20.20-python3.10
     entrypoint: ["/opt/prefect/entrypoint.sh", "prefect", "work-pool", "create", "--type", "process", "catasto-pool"]
     environment:
       - PREFECT_API_URL=http://prefect:4200/api
@@ -61,7 +61,7 @@ services:
     profiles: ["pool"]
 
   prefect_worker_catasto:
-    image: prefecthq/prefect:2.20.17-python3.10
+    image: prefecthq/prefect:2.20.20-python3.10
     entrypoint: ["/opt/prefect/entrypoint.sh", "prefect", "worker", "start", "--pool", "catasto-pool"]
     environment:
       - PREFECT_API_URL=http://prefect:4200/api
@@ -105,7 +105,7 @@ services:
 
   ### Prefect CLI
   cli:
-    image: prefecthq/prefect:2.20.17-python3.10
+    image: prefecthq/prefect:2.20.20-python3.10
     entrypoint: ["/opt/prefect/entrypoint.sh", "bash"]
     working_dir: "/root/catasto"
     volumes:
