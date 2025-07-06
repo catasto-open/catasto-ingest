@@ -870,8 +870,6 @@ def process_smidt_file_flow(
         )
         logger.info(f"Final directory {final_dir}, folder name {folder_name}")
 
-        breakpoint()
-
         # Upload all extracted files with the correct prefix
         dest_paths = []
         for file_path in final_dir.rglob("*"):
