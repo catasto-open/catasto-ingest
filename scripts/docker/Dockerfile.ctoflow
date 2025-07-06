@@ -17,14 +17,14 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get --yes clean && \
     rm -rf /var/lib/apt/lists/*
 # Install duckdb dependencies
-RUN mkdir -p /root/.duckdb/extensions/v1.2.2/linux_amd64_gcc4 && \
-    curl -O http://extensions.duckdb.org/v1.2.2/linux_amd64_gcc4/postgres_scanner.duckdb_extension.gz && \
-    curl -O http://extensions.duckdb.org/v1.2.2/linux_amd64_gcc4/spatial.duckdb_extension.gz && \
+RUN mkdir -p /root/.duckdb/extensions/v1.3.1/linux_amd64_gcc4 && \
+    curl -O http://extensions.duckdb.org/v1.3.1/linux_amd64_gcc4/postgres_scanner.duckdb_extension.gz && \
+    curl -O http://extensions.duckdb.org/v1.3.1/linux_amd64_gcc4/spatial.duckdb_extension.gz && \
     gunzip postgres_scanner.duckdb_extension.gz && \
     gunzip spatial.duckdb_extension.gz && \
-    mv postgres_scanner.duckdb_extension spatial.duckdb_extension /root/.duckdb/extensions/v1.2.2/linux_amd64_gcc4/
+    mv postgres_scanner.duckdb_extension spatial.duckdb_extension /root/.duckdb/extensions/v1.3.1/linux_amd64_gcc4/
 # Install poetry
-RUN echo "VERSION 0.0.1"
+RUN echo "VERSION 0.0.2"
 RUN pip3 install poetry && \
     git clone https://github.com/catasto-open/catasto-ingest.git && \
     cd catasto-ingest && \
