@@ -1,4 +1,7 @@
+import io
+import tarfile
 import tempfile
+import uuid
 from pathlib import Path
 from typing import List, Tuple
 
@@ -105,35 +108,232 @@ def download_files_from_minio(
 
 
 @task(name="Extract private key", log_prints=True, retries=3)
-def extract_private_key(p12_path: Path, p12_password: str) -> Path:
-    """Extract private key from file P12"""
+def extract_private_key(p12_path: Path, p12_password: str, dind: bool = False) -> Path:
+    """Extract private key from file P12
+
+    Args:
+        p12_path: Path to the P12 file
+        p12_password: Password for the P12 file
+        dind: Use Docker volume approach for Docker-in-Docker (default: False)
+
+    Returns:
+        Path to the extracted private key file
+    """
+
+    key_path = p12_path.parent / "cifra.pem"
+
+    if dind:
+        print("Using Docker volume approach for Docker-in-Docker")
+        return _extract_private_key_docker_volume(p12_path, p12_password, key_path)
+    else:
+        print("Using standard Docker container approach")
+        return _extract_private_key_standard(p12_path, p12_password, key_path)
+
+
+def _extract_private_key_standard(
+    p12_path: Path, p12_password: str, key_path: Path
+) -> Path:
+    """Standard extraction using direct volume mount (original logic)"""
+
     container = get_docker_container(
         image_name="frapsoft/openssl:latest",
         volumes=[f"{p12_path.parent}:/export"],
     )
 
-    key_path = p12_path.parent / "cifra.pem"
-
     container.command = f"""
         pkcs12 -clcerts -in /export/{p12_path.name} \
-        -out /export/cifra.pem -passin pass:{p12_password} -passout pass:{p12_password}
+        -out /export/cifra.pem \
+        -passin pass:{p12_password} \
+        -passout pass:{p12_password}
     """
 
     container.run()
+
     if not key_path.exists():
         raise Exception("Error while extracting private key from P12 file")
+
     return key_path
 
 
+def _extract_private_key_docker_volume(
+    p12_path: Path, p12_password: str, key_path: Path
+) -> Path:
+    """Docker-in-Docker extraction using temporary Docker volume"""
+
+    if not p12_path.exists():
+        raise FileNotFoundError(f"P12 file not found: {p12_path}")
+
+    client = docker.from_env()
+    volume_name = f"openssl-temp-{uuid.uuid4().hex[:8]}"
+    created_containers = []  # Track containers for cleanup
+    volume = None
+
+    try:
+        # Crea volume temporaneo
+        volume = client.volumes.create(name=volume_name)
+        print(f"Created temporary volume: {volume_name}")
+
+        # Passo 1: Copia P12 nel volume
+        print(f"Copying P12 file {p12_path.name} to volume...")
+        with open(p12_path, "rb") as f:
+            p12_data = f.read()
+
+        # Crea tar con il file P12
+        tar_buffer = io.BytesIO()
+        with tarfile.open(fileobj=tar_buffer, mode="w") as tar:
+            info = tarfile.TarInfo(name=p12_path.name)
+            info.size = len(p12_data)
+            tar.addfile(info, io.BytesIO(p12_data))
+        tar_buffer.seek(0)
+
+        # Copia nel volume usando container temporaneo
+        copy_container = client.containers.run(
+            image="alpine:latest",
+            command="sleep 1",
+            volumes={volume_name: {"bind": "/shared", "mode": "rw"}},
+            detach=True,
+            remove=False,
+        )
+        created_containers.append(copy_container)
+
+        copy_container.put_archive("/shared", tar_buffer.getvalue())
+        copy_container.wait()
+        print("P12 file copied to volume successfully")
+
+        # Passo 2: Esegui OpenSSL (questo container si auto-rimuove)
+        print("Running OpenSSL extraction...")
+        try:
+            openssl_result = client.containers.run(
+                image="frapsoft/openssl:latest",
+                command=f"pkcs12 -clcerts -in /shared/{p12_path.name} -out /shared/cifra.pem -passin pass:{p12_password} -passout pass:{p12_password}",
+                volumes={volume_name: {"bind": "/shared", "mode": "rw"}},
+                remove=True,  # Auto-remove dopo execution
+            )
+            print("OpenSSL container executed successfully")
+        except Exception as openssl_error:
+            print(f"OpenSSL execution failed: {openssl_error}")
+            raise Exception(f"OpenSSL extraction failed: {openssl_error}")
+
+        # Passo 3: Recupera il file risultante
+        print("Extracting private key from volume...")
+        extract_container = client.containers.run(
+            image="alpine:latest",
+            command="sleep 1",
+            volumes={volume_name: {"bind": "/shared", "mode": "ro"}},
+            detach=True,
+            remove=False,
+        )
+        created_containers.append(extract_container)
+
+        # Estrai il file cifra.pem
+        try:
+            archive_stream, _ = extract_container.get_archive("/shared/cifra.pem")
+
+            # Estrai dal tar
+            tar_data = b"".join(archive_stream)
+            tar_buffer = io.BytesIO(tar_data)
+
+            with tarfile.open(fileobj=tar_buffer) as tar:
+                pem_file = tar.extractfile("cifra.pem")
+                if pem_file:
+                    with open(key_path, "wb") as f:
+                        f.write(pem_file.read())
+                    print(f"Private key extracted to: {key_path}")
+                else:
+                    raise Exception("Could not extract cifra.pem from archive")
+
+        except docker.errors.NotFound:
+            raise Exception("cifra.pem not found in volume - OpenSSL extraction failed")
+
+        if not key_path.exists():
+            raise Exception("Error while extracting private key from P12 file")
+
+        return key_path
+
+    except Exception as e:
+        print(f"Error during Docker volume extraction: {e}")
+        raise Exception("Error while extracting private key from P12 file")
+    finally:
+        # Cleanup containers prima del volume
+        for container in created_containers:
+            try:
+                # Ferma il container se è ancora in running
+                if container.status == "running":
+                    print(f"Stopping container {container.short_id}...")
+                    container.stop(timeout=5)
+
+                # Rimuovi il container
+                container.remove(force=True)
+                print(f"Removed container {container.short_id}")
+            except Exception as container_error:
+                print(
+                    f"Warning: Could not cleanup container {container.short_id}: {container_error}"
+                )
+                # Prova rimozione forzata
+                try:
+                    container.remove(force=True)
+                except:
+                    pass
+
+        # Cleanup volume dopo aver rimosso tutti i container
+        if volume:
+            try:
+                # Aspetta un momento per essere sicuri che i container siano liberati
+                import time
+
+                time.sleep(1)
+
+                volume.remove(force=True)
+                print(f"Cleaned up volume: {volume_name}")
+            except Exception as cleanup_error:
+                print(
+                    f"Warning: Could not cleanup volume {volume_name}: {cleanup_error}"
+                )
+                # Prova a forzare la rimozione del volume
+                try:
+                    client.api.remove_volume(volume_name, force=True)
+                    print(f"Force removed volume: {volume_name}")
+                except:
+                    print(f"Volume {volume_name} may need manual cleanup")
+
+
 @task(name="Decrypt", log_prints=True, retries=3)
-def decrypt_file(enc_file: Path, key_path: Path, key_password: str) -> Path:
-    """Decrypt file using OpenSSL S/MIME"""
+def decrypt_file(
+    enc_file: Path, key_path: Path, key_password: str, dind: bool = False
+) -> Path:
+    """Decrypt file using OpenSSL S/MIME
+
+    Args:
+        enc_file: Path to the encrypted file
+        key_path: Path to the private key file
+        key_password: Password for the private key
+        dind: Use Docker volume approach for Docker-in-Docker (default: False)
+
+    Returns:
+        Path to the decrypted file
+    """
+
+    output_path = enc_file.with_suffix(".zip")
+
+    if dind:
+        print("Using Docker volume approach for decryption")
+        return _decrypt_file_docker_volume(
+            enc_file, key_path, key_password, output_path
+        )
+    else:
+        print("Using standard Docker container approach for decryption")
+        return _decrypt_file_standard(enc_file, key_path, key_password, output_path)
+
+
+def _decrypt_file_standard(
+    enc_file: Path, key_path: Path, key_password: str, output_path: Path
+) -> Path:
+    """Standard decryption using direct volume mount (original logic)"""
+
     container = get_docker_container(
         image_name="frapsoft/openssl:latest",
         volumes=[f"{enc_file.parent}:/export"],
     )
-
-    output_path = enc_file.with_suffix(".zip")
 
     container.command = f"""
         smime -decrypt \
@@ -149,9 +349,191 @@ def decrypt_file(enc_file: Path, key_path: Path, key_password: str) -> Path:
     return output_path
 
 
+def _decrypt_file_docker_volume(
+    enc_file: Path, key_path: Path, key_password: str, output_path: Path
+) -> Path:
+    """Docker-in-Docker decryption using temporary Docker volume"""
+
+    if not enc_file.exists():
+        raise FileNotFoundError(f"Encrypted file not found: {enc_file}")
+    if not key_path.exists():
+        raise FileNotFoundError(f"Key file not found: {key_path}")
+
+    client = docker.from_env()
+    volume_name = f"decrypt-temp-{uuid.uuid4().hex[:8]}"
+    created_containers = []
+    volume = None
+
+    try:
+        # Crea volume temporaneo
+        volume = client.volumes.create(name=volume_name)
+        print(f"Created temporary volume: {volume_name}")
+
+        # Passo 1: Copia entrambi i file nel volume
+        print(f"Copying files to volume: {enc_file.name} and {key_path.name}")
+
+        # Leggi entrambi i file
+        with open(enc_file, "rb") as f:
+            enc_data = f.read()
+        with open(key_path, "rb") as f:
+            key_data = f.read()
+
+        # Crea tar con entrambi i file
+        tar_buffer = io.BytesIO()
+        with tarfile.open(fileobj=tar_buffer, mode="w") as tar:
+            # Aggiungi file crittografato
+            enc_info = tarfile.TarInfo(name=enc_file.name)
+            enc_info.size = len(enc_data)
+            tar.addfile(enc_info, io.BytesIO(enc_data))
+
+            # Aggiungi file chiave
+            key_info = tarfile.TarInfo(name=key_path.name)
+            key_info.size = len(key_data)
+            tar.addfile(key_info, io.BytesIO(key_data))
+        tar_buffer.seek(0)
+
+        # Copia nel volume usando container temporaneo
+        copy_container = client.containers.run(
+            image="alpine:latest",
+            command="sleep 1",
+            volumes={volume_name: {"bind": "/shared", "mode": "rw"}},
+            detach=True,
+            remove=False,
+        )
+        created_containers.append(copy_container)
+
+        copy_container.put_archive("/shared", tar_buffer.getvalue())
+        copy_container.wait()
+        print("Files copied to volume successfully")
+
+        # Passo 2: Esegui OpenSSL smime decrypt
+        print("Running OpenSSL S/MIME decryption...")
+        try:
+            decrypt_result = client.containers.run(
+                image="frapsoft/openssl:latest",
+                command=f"""smime -decrypt -in /shared/{enc_file.name} -inform der -binary -out /shared/{output_path.name} -recip /shared/{key_path.name} -passin pass:{key_password}""",
+                volumes={volume_name: {"bind": "/shared", "mode": "rw"}},
+                remove=True,
+            )
+            print("OpenSSL S/MIME decryption executed successfully")
+        except Exception as decrypt_error:
+            print(f"Decryption failed: {decrypt_error}")
+            raise Exception(f"OpenSSL S/MIME decryption failed: {decrypt_error}")
+
+        # Passo 3: Recupera il file decrittografato
+        print("Extracting decrypted file from volume...")
+        extract_container = client.containers.run(
+            image="alpine:latest",
+            command="sleep 1",
+            volumes={volume_name: {"bind": "/shared", "mode": "ro"}},
+            detach=True,
+            remove=False,
+        )
+        created_containers.append(extract_container)
+
+        # Estrai il file decrittografato
+        try:
+            archive_stream, _ = extract_container.get_archive(
+                f"/shared/{output_path.name}"
+            )
+
+            # Estrai dal tar
+            tar_data = b"".join(archive_stream)
+            tar_buffer = io.BytesIO(tar_data)
+
+            with tarfile.open(fileobj=tar_buffer) as tar:
+                decrypted_file = tar.extractfile(output_path.name)
+                if decrypted_file:
+                    with open(output_path, "wb") as f:
+                        f.write(decrypted_file.read())
+                    print(f"Decrypted file extracted to: {output_path}")
+                else:
+                    raise Exception(
+                        f"Could not extract {output_path.name} from archive"
+                    )
+
+        except docker.errors.NotFound:
+            raise Exception(
+                f"{output_path.name} not found in volume - decryption failed"
+            )
+
+        if not output_path.exists():
+            raise Exception("Error while decrypting file")
+
+        return output_path
+
+    except Exception as e:
+        print(f"Error during Docker volume decryption: {e}")
+        raise Exception("Error while decrypting file")
+    finally:
+        # Cleanup containers prima del volume
+        for container in created_containers:
+            try:
+                if container.status == "running":
+                    print(f"Stopping container {container.short_id}...")
+                    container.stop(timeout=5)
+
+                container.remove(force=True)
+                print(f"Removed container {container.short_id}")
+            except Exception as container_error:
+                print(
+                    f"Warning: Could not cleanup container {container.short_id}: {container_error}"
+                )
+                try:
+                    container.remove(force=True)
+                except:
+                    pass
+
+        # Cleanup volume
+        if volume:
+            try:
+                import time
+
+                time.sleep(1)
+
+                volume.remove(force=True)
+                print(f"Cleaned up volume: {volume_name}")
+            except Exception as cleanup_error:
+                print(
+                    f"Warning: Could not cleanup volume {volume_name}: {cleanup_error}"
+                )
+                try:
+                    client.api.remove_volume(volume_name, force=True)
+                    print(f"Force removed volume: {volume_name}")
+                except:
+                    print(f"Volume {volume_name} may need manual cleanup")
+
+
 @task(name="Verify and extract", retries=3)
-def verify_and_extract(zip_path: Path, ca_cert_path: Path) -> Tuple[Path, str]:
-    """Verify S/MIME signature and extract the content."""
+def verify_and_extract(
+    zip_path: Path, ca_cert_path: Path, dind: bool = False
+) -> Tuple[Path, str]:
+    """Verify S/MIME signature and extract the content.
+
+    Args:
+        zip_path: Path to the ZIP file
+        ca_cert_path: Path to the CA certificate file
+        dind: Use Docker volume approach for Docker-in-Docker (default: False)
+
+    Returns:
+        Tuple of (final_extract_dir, folder_name)
+    """
+
+    logger = get_run_logger()
+
+    if dind:
+        print("Using Docker volume approach for verify and extract")
+        return _verify_and_extract_docker_volume(zip_path, ca_cert_path, logger)
+    else:
+        print("Using standard Docker container approach for verify and extract")
+        return _verify_and_extract_standard(zip_path, ca_cert_path, logger)
+
+
+def _verify_and_extract_standard(
+    zip_path: Path, ca_cert_path: Path, logger
+) -> Tuple[Path, str]:
+    """Versione originale con comandi Alpine migliorati"""
+
     logger = get_run_logger()
     temp_dir = zip_path.parent
     output_zip = temp_dir / zip_path.name.replace(".p7m", "")
@@ -162,18 +544,17 @@ def verify_and_extract(zip_path: Path, ca_cert_path: Path) -> Tuple[Path, str]:
     first_extract_dir.mkdir(exist_ok=True)
     final_extract_dir.mkdir(exist_ok=True)
 
+    # MIGLIORATO: Comando 7z senza update (immagine con p7zip preinstallato o base)
     extract_command = f"""
         /bin/ash -c \
-        'apk add --no-cache p7zip && \
+        '(apk add --no-cache p7zip 2>/dev/null || apk add --no-cache p7zip-full 2>/dev/null || echo "Using pre-installed tools") && \
         cd /export && \
         7z e {zip_path.name} -so > temp_content'
     """
-
     extract_container = get_docker_container(
         image_name="alpine:latest",
         volumes=[f"{temp_dir}:/export:rw"],
     )
-
     extract_container.command = extract_command
     extract_container.run()
 
@@ -185,28 +566,25 @@ def verify_and_extract(zip_path: Path, ca_cert_path: Path) -> Tuple[Path, str]:
         -out /export/{output_zip.name} \
         -CAfile /export/{ca_cert_path.name}
     """
-
     verify_container = get_docker_container(
         image_name="frapsoft/openssl:latest",
         volumes=[f"{temp_dir}:/export:rw"],
     )
-
     verify_container.command = verify_command
     verify_container.run()
 
     # Extract first ZIP and get the name of the inner ZIP file
+    # MIGLIORATO: Comando unzip senza update
     unzip_command = f"""
-        /bin/ash -c 'apk add --no-cache unzip && \
+        /bin/ash -c '(apk add --no-cache unzip 2>/dev/null || echo "Using pre-installed unzip") && \
         cd /export && \
         unzip {output_zip.name} -d first_extract && \
         ls /export/first_extract/*.zip > /export/inner_zip_name.txt'
     """
-
     unzip_container = get_docker_container(
         image_name="alpine:latest",
         volumes=[f"{temp_dir}:/export:rw"],
     )
-
     unzip_container.command = unzip_command
     unzip_container.run()
 
@@ -224,21 +602,197 @@ def verify_and_extract(zip_path: Path, ca_cert_path: Path) -> Tuple[Path, str]:
     final_extract_dir.mkdir(exist_ok=True)
 
     # Extract the second ZIP to the named directory
+    # MIGLIORATO: Comando unzip finale senza update
     final_extract_command = f"""
-        /bin/ash -c 'apk add --no-cache unzip && \
+        /bin/ash -c '(apk add --no-cache unzip 2>/dev/null || echo "Using pre-installed unzip") && \
         cd /export/first_extract && \
         unzip *.zip -d /export/{folder_name}'
     """
-
     final_extract_container = get_docker_container(
         image_name="alpine:latest",
         volumes=[f"{temp_dir}:/export:rw"],
     )
-
     final_extract_container.command = final_extract_command
     final_extract_container.run()
 
     return final_extract_dir, folder_name
+
+
+def _verify_and_extract_docker_volume(
+    zip_path: Path, ca_cert_path: Path, logger
+) -> Tuple[Path, str]:
+    """Versione Docker volume senza apk update - solo tool preinstallati"""
+
+    temp_dir = zip_path.parent
+    output_zip_name = zip_path.name.replace(".p7m", "")
+
+    client = docker.from_env()
+    volume_name = f"verify-temp-{uuid.uuid4().hex[:8]}"
+    created_containers = []
+    volume = None
+
+    try:
+        # Crea volume temporaneo
+        volume = client.volumes.create(name=volume_name)
+        print(f"Created temporary volume: {volume_name}")
+
+        # Copia file nel volume
+        with open(zip_path, "rb") as f:
+            zip_data = f.read()
+        with open(ca_cert_path, "rb") as f:
+            ca_cert_data = f.read()
+
+        tar_buffer = io.BytesIO()
+        with tarfile.open(fileobj=tar_buffer, mode="w") as tar:
+            zip_info = tarfile.TarInfo(name=zip_path.name)
+            zip_info.size = len(zip_data)
+            tar.addfile(zip_info, io.BytesIO(zip_data))
+
+            ca_info = tarfile.TarInfo(name=ca_cert_path.name)
+            ca_info.size = len(ca_cert_data)
+            tar.addfile(ca_info, io.BytesIO(ca_cert_data))
+        tar_buffer.seek(0)
+
+        copy_container = client.containers.run(
+            image="alpine:latest",
+            command="sleep 1",
+            volumes={volume_name: {"bind": "/shared", "mode": "rw"}},
+            detach=True,
+            remove=False,
+        )
+        created_containers.append(copy_container)
+        copy_container.put_archive("/shared", tar_buffer.getvalue())
+        copy_container.wait()
+
+        # Passo 1: Estrazione 7z - solo immagine specializzata
+        print("Running 7z extraction with specialized image...")
+        client.containers.run(
+            image="crazymax/7zip:latest",
+            command=f"/bin/sh -c '7z e /shared/{zip_path.name} -so > /shared/temp_content'",
+            volumes={volume_name: {"bind": "/shared", "mode": "rw"}},
+            remove=True,
+        )
+        print("7z extraction completed")
+
+        # Passo 2: Verifica S/MIME
+        print("Running S/MIME verification...")
+        client.containers.run(
+            image="frapsoft/openssl:latest",
+            command=f"smime -verify -in /shared/temp_content -inform der -binary -out /shared/{output_zip_name} -CAfile /shared/{ca_cert_path.name}",
+            volumes={volume_name: {"bind": "/shared", "mode": "rw"}},
+            remove=True,
+        )
+        print("S/MIME verification completed")
+
+        # Passo 3: Prima estrazione ZIP - solo Alpine preinstallato
+        print("Running first ZIP extraction with Alpine...")
+        client.containers.run(
+            image="alpine:latest",
+            command=f"""
+                /bin/ash -c 'cd /shared && mkdir -p first_extract && 
+                unzip {output_zip_name} -d first_extract && 
+                ls /shared/first_extract/*.zip > /shared/inner_zip_name.txt'
+            """,
+            volumes={volume_name: {"bind": "/shared", "mode": "rw"}},
+            remove=True,
+        )
+        print("First ZIP extraction completed")
+
+        # Passo 4: Leggi nome ZIP interno
+        read_container = client.containers.run(
+            image="alpine:latest",
+            command="sleep 1",
+            volumes={volume_name: {"bind": "/shared", "mode": "ro"}},
+            detach=True,
+            remove=False,
+        )
+        created_containers.append(read_container)
+
+        try:
+            archive_stream, _ = read_container.get_archive("/shared/inner_zip_name.txt")
+            tar_data = b"".join(archive_stream)
+            tar_buffer = io.BytesIO(tar_data)
+
+            with tarfile.open(fileobj=tar_buffer) as tar:
+                name_file = tar.extractfile("inner_zip_name.txt")
+                if name_file:
+                    inner_zip_full_path = name_file.read().decode().strip()
+                    inner_zip_name = Path(inner_zip_full_path).name
+                    logger.info(f"Inner ZIP file name: {inner_zip_name}")
+                else:
+                    inner_zip_name = "unknown.zip"
+        except:
+            inner_zip_name = "unknown.zip"
+
+        folder_name = Path(inner_zip_name).stem if inner_zip_name else "extracted"
+        print(f"Final extraction folder: {folder_name}")
+
+        # Passo 5: Estrazione finale - solo Alpine preinstallato
+        print("Running final ZIP extraction with Alpine...")
+        client.containers.run(
+            image="alpine:latest",
+            command=f"""
+                /bin/ash -c 'cd /shared/first_extract && mkdir -p /shared/{folder_name} && 
+                unzip *.zip -d /shared/{folder_name}'
+            """,
+            volumes={volume_name: {"bind": "/shared", "mode": "rw"}},
+            remove=True,
+        )
+        print("Final ZIP extraction completed")
+
+        # Passo 6: Recupera directory finale
+        final_container = client.containers.run(
+            image="alpine:latest",
+            command="sleep 1",
+            volumes={volume_name: {"bind": "/shared", "mode": "ro"}},
+            detach=True,
+            remove=False,
+        )
+        created_containers.append(final_container)
+
+        final_extract_dir = temp_dir / folder_name
+        final_extract_dir.mkdir(exist_ok=True)
+
+        archive_stream, _ = final_container.get_archive(f"/shared/{folder_name}")
+        tar_data = b"".join(archive_stream)
+        tar_buffer = io.BytesIO(tar_data)
+
+        with tarfile.open(fileobj=tar_buffer) as tar:
+            for member in tar.getmembers():
+                if member.isfile():
+                    relative_path = Path(member.name).relative_to(folder_name)
+                    target_path = final_extract_dir / relative_path
+                    target_path.parent.mkdir(parents=True, exist_ok=True)
+
+                    file_obj = tar.extractfile(member)
+                    if file_obj:
+                        with open(target_path, "wb") as f:
+                            f.write(file_obj.read())
+
+        print(f"Extraction completed successfully: {final_extract_dir}")
+        return final_extract_dir, folder_name
+
+    except Exception as e:
+        print(f"Error: {e}")
+        raise Exception("Error while verifying and extracting")
+    finally:
+        # Cleanup
+        for container in created_containers:
+            try:
+                if container.status == "running":
+                    container.stop(timeout=5)
+                container.remove(force=True)
+            except:
+                pass
+
+        if volume:
+            try:
+                import time
+
+                time.sleep(1)
+                volume.remove(force=True)
+            except:
+                pass
 
 
 @task(name="Upload to MinIO", log_prints=True, tags="SMIDT")
@@ -305,14 +859,18 @@ def process_smidt_file_flow(
         if len(original_path.parts) > 2:
             prefix_path = f"{original_path.parts[0]}/{original_path.parts[1]}/"
 
-        key_path = extract_private_key(p12_path, p12_password)
+        key_path = extract_private_key(p12_path, p12_password, dind=True)
         logger.info(f"Extract private key {key_path}")
 
-        decrypted_path = decrypt_file(enc_path, key_path, key_password)
+        decrypted_path = decrypt_file(enc_path, key_path, key_password, dind=True)
         logger.info(f"Decrypted path file {decrypted_path}")
 
-        final_dir, folder_name = verify_and_extract(decrypted_path, ca_cert_path)
+        final_dir, folder_name = verify_and_extract(
+            decrypted_path, ca_cert_path, dind=True
+        )
         logger.info(f"Final directory {final_dir}, folder name {folder_name}")
+
+        breakpoint()
 
         # Upload all extracted files with the correct prefix
         dest_paths = []
