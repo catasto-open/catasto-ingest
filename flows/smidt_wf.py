@@ -56,7 +56,7 @@ def smidt_flow():
                 ca_cert_key=smidt_block.value["CA_certificate"],
                 p12_password=smidt_block.value["p12_password"],
                 key_password=smidt_block.value["key_password"],
-                output_bucket=smidt_block.value["siscat_bucket"],
+                output_bucket=smidt_block.value["catasto_bucket"],
             )
         return cadaster_files
     else:

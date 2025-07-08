@@ -141,3 +141,7 @@ libs/src/sister/tests/sample.zip
 libs/src/sister/sample.zip
 
 .vscode/
+
+libs/src/catasto/tests/data/data/
+
+.bruin.yml

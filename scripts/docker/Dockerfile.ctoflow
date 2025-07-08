@@ -24,8 +24,13 @@ RUN mkdir -p /root/.duckdb/extensions/v1.2.2/linux_amd64_gcc4 && \
     gunzip spatial.duckdb_extension.gz && \
     mv postgres_scanner.duckdb_extension spatial.duckdb_extension /root/.duckdb/extensions/v1.2.2/linux_amd64_gcc4/
 # Install poetry
-RUN pip install poetry && \
+RUN echo "VERSION 0.0.2"
+RUN pip3 install poetry && \
     git clone https://github.com/catasto-open/catasto-ingest.git && \
     cd catasto-ingest && \
+    git checkout hotfix/dind && \
     poetry add "gdal=3.6.2" && \
     poetry install
+WORKDIR /opt/prefect/catasto-ingest
+RUN poetry run prefect config set PREFECT_API_URL=http://prefect:4200/api
+CMD ["poetry", "run", "prefect", "shell", "serve", "poetry run python flows/smidt_wf.py", "--flow-name", "Catasto Workflow Shell", "--deployment-name", "Catasto Workflow shell deployment"]
