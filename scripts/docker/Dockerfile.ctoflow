@@ -28,6 +28,7 @@ RUN echo "VERSION 0.0.2"
 RUN pip3 install poetry && \
     git clone https://github.com/catasto-open/catasto-ingest.git && \
     cd catasto-ingest && \
+    git checkout hotfix/dind && \
     poetry add "gdal=3.6.2" && \
     poetry install
 WORKDIR /opt/prefect/catasto-ingest

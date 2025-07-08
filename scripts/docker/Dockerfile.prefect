@@ -1,4 +1,4 @@
-FROM prefecthq/prefect:2.20.17-python3.10
+FROM prefecthq/prefect:2.20.20-python3.10
 
 # Install security updates and system dependencies, then clean up
 RUN export DEBIAN_FRONTEND=noninteractive && \

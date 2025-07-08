@@ -119,6 +119,24 @@ services:
       - prefect-network
     profiles: ["cli"]
 
+  ### Prefect Catasto-Open Flow
+  prefect-ctoflow:
+    image: catasto-open/prefect-ctoflow:08072025
+    build:
+      context: ./prefect-ctoflow
+      dockerfile: Dockerfile
+    environment:
+      - PREFECT_API_URL=http://prefect:4200/api
+      - EXTRA_PIP_PACKAGES=s3fs prefect<3.0 prefect-aws<3.0 prefect-sqlalchemy<3.0 prefect-docker<3.0 pygdal==3.6.2.11 httpx-auth
+    hostname: prefect-ctoflow
+    depends_on:
+      - prefect
+    networks:
+      - prefect-network
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    profiles: ["ctoflow"]
+
 volumes:
   prefect:
     driver: local
