@@ -121,7 +121,7 @@ services:
 
   ### Prefect Catasto-Open Flow
   prefect-ctoflow:
-    image: catasto-open/prefect-ctoflow:08072025
+    image: catasto-open/prefect-ctoflow:09072025
     build:
       context: ./prefect-ctoflow
       dockerfile: Dockerfile
