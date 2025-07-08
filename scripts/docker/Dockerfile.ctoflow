@@ -1,4 +1,4 @@
-FROM prefecthq/prefect:2.20.17-python3.10
+FROM prefecthq/prefect:2.20.20-python3.10
 
 # Install security updates and system dependencies, then clean up
 RUN export DEBIAN_FRONTEND=noninteractive && \
@@ -24,10 +24,11 @@ RUN mkdir -p /root/.duckdb/extensions/v1.2.2/linux_amd64_gcc4 && \
     gunzip spatial.duckdb_extension.gz && \
     mv postgres_scanner.duckdb_extension spatial.duckdb_extension /root/.duckdb/extensions/v1.2.2/linux_amd64_gcc4/
 # Install poetry
-RUN echo "VERSION 0.0.1"
+RUN echo "VERSION 0.0.2"
 RUN pip3 install poetry && \
     git clone https://github.com/catasto-open/catasto-ingest.git && \
     cd catasto-ingest && \
+    git checkout hotfix/dind && \
     poetry add "gdal=3.6.2" && \
     poetry install
 WORKDIR /opt/prefect/catasto-ingest

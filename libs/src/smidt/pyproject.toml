@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "smidt"
-version = "0.5.0"
+version = "0.6.0"
 description = "Smidt workflow for the automatic ingestion to Sister workflow"
 authors = ["Francesco Bartoli <francesco.bartoli@geobeyond.it>"]
 packages = [
@@ -15,7 +15,7 @@ watchdog = "^3.0.0"
 ftputil = "^5.1.0"
 filelock = "^3.13.1"
 fasteners = "^0.19"
-pydantic = "^2.10.4"
+pydantic = "^2.11.0"
 loguru = "^0.7.3"
 pydantic-settings = "^2.7.1"
 minio = "^7.2.14"

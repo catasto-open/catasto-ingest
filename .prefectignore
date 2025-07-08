@@ -11,6 +11,15 @@ poetry.lock
 poetry.toml
 pyproject.toml
 mkdocs.yml
+__pycache__
+.pytest_cache
+.git
+venv
+env
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
 docs
 scripts
 .DS_Store
