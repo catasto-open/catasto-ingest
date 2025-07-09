@@ -25,6 +25,7 @@ RUN mkdir -p /root/.duckdb/extensions/v1.2.2/linux_amd64_gcc4 && \
     mv postgres_scanner.duckdb_extension spatial.duckdb_extension /root/.duckdb/extensions/v1.2.2/linux_amd64_gcc4/
 # Install poetry
 RUN pip install poetry && \
+    # catasto-ingest has develop as the default branch
     git clone https://github.com/catasto-open/catasto-ingest.git && \
     cd catasto-ingest && \
     poetry add "gdal=3.6.2" && \
