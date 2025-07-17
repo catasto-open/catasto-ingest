@@ -1,6 +1,8 @@
 import time
 from pathlib import Path
 
+import argparse
+import logging
 import duckdb
 import psycopg2
 import structlog
@@ -71,7 +73,7 @@ def load_ids_to_notify_to_ancillary(
             codice_immobile int8 NOT NULL,
             tipo_immobile varchar(1) NOT NULL,
             data_modifica varchar(10) NOT NULL,
-            tipo_operazione varchar(32)
+            tipo_operazione varchar(32),
             PRIMARY KEY (codice_immobile, tipo_immobile, data_modifica)
         )
         """)
@@ -198,3 +200,39 @@ def load_ids_to_notify_to_ancillary(
 
         return duckdb_filepath
 
+def main():
+    parser = argparse.ArgumentParser(description="Test loader function")
+
+    parser.add_argument("--duckdb_filepath", default="/tmp/catasto.duckdb", help="Percorso file DuckDB")
+    parser.add_argument("--pg_conn_string", default="postgresql://catasto:catasto@localhost:5433/catasto", help="Connessione PostgreSQL")
+    parser.add_argument("--pg_immobili_di_interesse_query", default="SELECT tit.codice as codice_comune, tit.immobile as codice_immobile, tit.tipo_imm as tipo_immobile FROM ctcn.titolarita_big_city tit GROUP BY tit.codice, tit.immobile, tit.tipo_imm", help="Query immobili di interesse")
+
+    args = parser.parse_args()
+
+    logger = structlog.get_logger("main_test")
+
+    try:
+        result = load_ids_to_notify_to_ancillary(
+            duckdb_filepath=args.duckdb_filepath,
+            pg_conn_string=args.pg_conn_string,
+            pg_immobili_di_interesse_query=args.pg_immobili_di_interesse_query,
+            clean_tables=True,
+            logger=logger
+        )
+        logger.info(f"Loader completato con successo. Risultato: {result}")
+
+        # Debug print of the first 20 rows from ctcn.to_notify_ancillary
+        with duckdb.connect(args.duckdb_filepath) as duck_conn:
+            rows = duck_conn.execute(
+                "SELECT * FROM ctcn.to_notify_ancillary LIMIT 20"
+            ).fetchall()
+
+            print("\nPrimi 20 record in ctcn.to_notify_ancillary:")
+            for row in rows:
+                print(row)
+
+    except Exception as e:
+        logger.exception("Errore durante il caricamento dati", exc_info=e)
+
+if __name__ == "__main__":
+    main()
